@@ -1,95 +1,84 @@
 /**
- * @file Memory-mapped position tracking for the TeX parser.
+ * @file Memory-mapped position tracking for the TeX parser string.
  *
- * Maintains an array where positions[i] = the original root-input position
- * of character i in the (possibly mutated) parser string. Insertions splice
- * in -1 entries. Macro expansions mark a range with a shared source span.
- * Any position lookup is a simple array index.
+ * Tracks the relationship between positions in the current (possibly mutated)
+ * parser string and the original root input string. Automatically handles:
+ * - Sub-parser slicing (child())
+ * - Character insertions (recordInsertion())
+ * - Macro expansions (replaceRange())
  */
 
-export type SourcePos = number | { start: number; end: number };
-
 export class SourceMap {
-  private positions: SourcePos[];
-  private endPos: number;
+  /** positions[i] = original position of character i, or -1 for synthetic */
+  public positions: number[];
+  /** Original position corresponding to "past the end" of this string */
+  public endPos: number;
 
   constructor(length: number, baseOffset: number = 0) {
     this.positions = Array.from({length}, (_, i) => baseOffset + i);
     this.endPos = baseOffset + length;
   }
 
+  /** Record synthetic characters inserted at `pos` (e.g., digit-separator spaces). */
   recordInsertion(pos: number, count: number = 1) {
-    const inserted = new Array(count).fill(-1);
-    this.positions.splice(pos, 0, ...inserted);
+    this.positions.splice(pos, 0, ...new Array(count).fill(-1));
   }
 
   /**
-   * Record a macro expansion. Positions [0, consumedEnd) are replaced by
-   * `expansionLen` entries that all carry the macro's original source span.
+   * Replace positions [start, end) with `newLen` entries that all map to the
+   * original position of `start`. Used for macro expansion: the macro's source
+   * span is [toOriginal(start), toOriginal(end)), and all expanded characters
+   * map back to that start.
    */
-  recordExpansion(macroStart: number, consumedEnd: number, expansionLen: number) {
-    const origStart = this.resolve(macroStart);
-    const origEnd = consumedEnd < this.positions.length
-      ? this.resolve(consumedEnd)
-      : this.endPos;
-    const span = { start: origStart, end: origEnd };
-    const tail = this.positions.slice(consumedEnd);
-    this.positions = new Array(expansionLen).fill(span).concat(tail);
-    if (tail.length === 0) {
-      this.endPos = origEnd;
-    }
+  replaceRange(start: number, end: number, newLen: number) {
+    const origStart = this.toOriginal(start);
+    const tail = this.positions.slice(end);
+    this.positions = [
+      ...this.positions.slice(0, start),
+      ...new Array(newLen).fill(origStart),
+      ...tail,
+    ];
   }
 
-  /**
-   * Resolve a position entry to a plain number (the start of its range).
-   */
-  private resolve(pos: number): number {
-    if (pos < 0 || this.positions.length === 0) return this.endPos;
-    if (pos >= this.positions.length) return this.endPos;
-    const p = this.positions[pos];
-    if (typeof p === 'object') return p.start;
-    if (p !== -1) return p;
-    for (let i = pos - 1; i >= 0; i--) {
-      const q = this.positions[i];
-      if (typeof q === 'object') return q.start + 1;
-      if (q !== -1) return q + 1;
-    }
-    return typeof this.positions[0] === 'object'
-      ? (this.positions[0] as {start: number}).start
-      : (this.positions[0] as number);
-  }
-
-  /**
-   * Map a position to the original start offset.
-   */
+  /** Map a position in the current string to the original root position. */
   toOriginal(pos: number): number {
     if (this.positions.length === 0) return this.endPos;
-    if (pos <= 0 && this.positions.length > 0) {
-      const p = this.positions[0];
-      return typeof p === 'object' ? p.start + pos : p + pos;
-    }
     if (pos >= this.positions.length) return this.endPos;
-    return this.resolve(pos);
+    if (pos < 0) return Math.max(0, this.positions[0] + pos);
+    const p = this.positions[pos];
+    if (p !== -1) return p;
+    for (let i = pos - 1; i >= 0; i--) {
+      if (this.positions[i] !== -1) return this.positions[i] + 1;
+    }
+    return this.positions[0];
   }
 
   /**
-   * Map a position to the original end offset. For positions within a
-   * macro expansion, this returns the macro's end rather than its start.
+   * Map a position to the original end offset. For synthetic/expansion
+   * positions, looks forward to find where the expansion ends.
    */
   toOriginalEnd(pos: number): number {
     if (this.positions.length === 0) return this.endPos;
     if (pos >= this.positions.length) return this.endPos;
     if (pos < 0) return this.toOriginal(pos);
     const p = this.positions[pos];
-    if (typeof p === 'object') return p.end;
-    return this.toOriginal(pos);
+    // If it's a real (non-synthetic) position, just return it
+    if (p !== -1 && (pos === 0 || this.positions[pos - 1] !== p)) return p;
+    // Synthetic or expansion: find the next different real position
+    for (let i = pos; i < this.positions.length; i++) {
+      if (this.positions[i] !== -1 && this.positions[i] !== p) {
+        return this.positions[i];
+      }
+    }
+    return this.endPos;
   }
 
+  /** Create a child SourceMap for a sub-parser whose string is a slice [start, end). */
   child(start: number, end: number): SourceMap {
     const sm = new SourceMap(0);
     sm.positions = this.positions.slice(start, end);
     sm.endPos = end < this.positions.length
-      ? this.resolve(end)
+      ? this.toOriginal(end)
       : this.endPos;
     return sm;
   }

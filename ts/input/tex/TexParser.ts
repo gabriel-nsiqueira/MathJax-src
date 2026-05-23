@@ -75,13 +75,6 @@ export default class TexParser {
   public saveI: number = 0;
 
   public sourceMap: SourceMap = new SourceMap(0);
-
-  public macroStart: number = 0;
-
-  /**
-   * Position where the last GetArgument/GetBrackets/GetUpTo extracted its
-   * content from. Used by pushParser to compute sub-parser sourceMap.
-   */
   public lastSliceStart: number = 0;
 
   /**
@@ -140,7 +133,22 @@ export default class TexParser {
    * @param {string} str The new string to parse.
    */
   set string(str: string) {
+    const old = this._string;
     this._string = str;
+    if (old && str !== old) {
+      // Detect what suffix was preserved: the tail of the old string
+      // that also appears at the end of the new string.
+      const oldTail = old.slice(this.i);
+      if (str.endsWith(oldTail)) {
+        // Macro expansion: old[0..i) was consumed, replaced by
+        // str[0..str.length - oldTail.length). The tail is unchanged.
+        const newPrefixLen = str.length - oldTail.length;
+        this.sourceMap.replaceRange(0, this.i, newPrefixLen);
+      } else {
+        // Full replacement (e.g., string setter during init) — rebuild
+        this.sourceMap.replaceRange(0, old.length, str.length);
+      }
+    }
   }
 
   /**
