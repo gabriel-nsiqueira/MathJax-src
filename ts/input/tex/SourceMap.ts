@@ -52,6 +52,29 @@ export class SourceMap {
   }
 
   /**
+   * Record a macro expansion: the parser string from `consumedEnd` onward
+   * was kept, but positions [0, consumedEnd) were replaced by `expansionLen`
+   * characters of expansion text. All expansion characters map back to the
+   * original position range [macroStart, macroEnd) of the macro invocation.
+   *
+   * After this call, the positions array matches the new parser.string which is:
+   *   expansion (expansionLen chars) + old string from consumedEnd onward
+   */
+  recordExpansion(macroStart: number, macroEnd: number, expansionLen: number, consumedEnd: number) {
+    const origStart = this.toOriginal(macroStart);
+    const origEnd = this.toOriginal(macroEnd);
+    const tail = this.positions.slice(consumedEnd);
+    const expansion = new Array(expansionLen).fill(origStart);
+    // Mark first and last expansion chars with the macro's original span
+    // so that nodes produced from the expansion get the macro's offset
+    if (expansionLen > 0) {
+      expansion[0] = origStart;
+      expansion[expansionLen - 1] = origEnd - 1;
+    }
+    this.positions = expansion.concat(tail);
+  }
+
+  /**
    * Create a child SourceMap for a sub-parser whose string was sliced
    * from this parser's string as [start, end). The child inherits the
    * correct original positions directly from this map's array.

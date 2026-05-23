@@ -72,9 +72,11 @@ export default class TexParser {
   /**
    * A stack to save the string positions when we restart the parser.
    */
-  private saveI: number = 0;
+  public saveI: number = 0;
 
   public sourceMap: SourceMap = new SourceMap(0);
+
+  public macroStart: number = 0;
 
   /**
    * Position where the last GetArgument/GetBrackets/GetUpTo extracted its

@@ -2255,6 +2255,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
     argcount: number,
     def?: string
   ) {
+    const macroStart = parser.macroStart;
     if (argcount) {
       const args: string[] = [];
       if (def != null) {
@@ -2266,11 +2267,13 @@ const BaseMethods: { [key: string]: ParseMethod } = {
       }
       macro = ParseUtil.substituteArgs(parser, args, macro);
     }
+    const consumedEnd = parser.i;
     parser.string = ParseUtil.addArgs(
       parser,
       macro,
       parser.string.slice(parser.i)
     );
+    parser.sourceMap.recordExpansion(macroStart, consumedEnd, macro.length, consumedEnd);
     parser.i = 0;
     ParseUtil.checkMaxMacros(parser);
   },

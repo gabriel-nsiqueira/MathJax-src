@@ -100,6 +100,7 @@ const ParseMethods = {
    * @param {string} _c The string '\'.
    */
   controlSequence(parser: TexParser, _c: string) {
+    parser.macroStart = parser.i - 1;
     const name = parser.GetCS();
     parser.parse(HandlerType.MACRO, [parser, name]);
   },
