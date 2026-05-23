@@ -593,7 +593,7 @@ export abstract class BaseItem extends MmlStack implements StackItem {
         node.attributes.set(TexConstant.Attr.LATEX, tex);
         const startPos = prefix ? this.startI - prefix.length : this.startI;
         node.attributes.set(TexConstant.Attr.LATEX_START, this.sourceMap.toOriginal(startPos));
-        node.attributes.set(TexConstant.Attr.LATEX_END, this.sourceMap.toOriginal(this.stopI));
+        node.attributes.set(TexConstant.Attr.LATEX_END, this.sourceMap.toOriginalEnd(this.stopI));
       }
     }
   }

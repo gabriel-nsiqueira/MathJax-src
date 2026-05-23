@@ -2273,7 +2273,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
       macro,
       parser.string.slice(parser.i)
     );
-    parser.sourceMap.recordExpansion(macroStart, consumedEnd, macro.length, consumedEnd);
+    parser.sourceMap.recordExpansion(macroStart, consumedEnd, macro.length);
     parser.i = 0;
     ParseUtil.checkMaxMacros(parser);
   },

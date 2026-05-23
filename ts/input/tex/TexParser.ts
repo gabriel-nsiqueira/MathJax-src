@@ -269,7 +269,7 @@ export default class TexParser {
     if (latex) {
       node.attributes.set(TexConstant.Attr.LATEX, latex);
       node.attributes.set(TexConstant.Attr.LATEX_START, this.sourceMap.toOriginal(0));
-      node.attributes.set(TexConstant.Attr.LATEX_END, this.sourceMap.toOriginal(this.string.length));
+      node.attributes.set(TexConstant.Attr.LATEX_END, this.sourceMap.toOriginalEnd(this.string.length));
     }
     return node;
   }
@@ -714,7 +714,7 @@ export default class TexParser {
             } else if (!node.childNodes[2].attributes.hasExplicit(LATEX)) {
               node.childNodes[2].attributes.set(LATEX, str);
               node.childNodes[2].attributes.set(START, sm.toOriginal(this.i - str.length));
-              node.childNodes[2].attributes.set(END, sm.toOriginal(this.i));
+              node.childNodes[2].attributes.set(END, sm.toOriginalEnd(this.i));
             }
           }
           //
@@ -738,7 +738,7 @@ export default class TexParser {
             } else if (!node.childNodes[1].attributes.hasExplicit(LATEX)) {
               node.childNodes[1].attributes.set(LATEX, str);
               node.childNodes[1].attributes.set(START, sm.toOriginal(this.i - str.length));
-              node.childNodes[1].attributes.set(END, sm.toOriginal(this.i));
+              node.childNodes[1].attributes.set(END, sm.toOriginalEnd(this.i));
             }
           }
           //
@@ -765,7 +765,7 @@ export default class TexParser {
     //
     node.attributes.set(LATEX, str);
     node.attributes.set(START, sm.toOriginal(old));
-    node.attributes.set(END, sm.toOriginal(old + str.length));
+    node.attributes.set(END, sm.toOriginalEnd(old + str.length));
   }
 
   /**
