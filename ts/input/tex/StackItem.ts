@@ -26,7 +26,6 @@ import { FactoryNodeClass } from '../../core/Tree/Factory.js';
 import TexError from './TexError.js';
 import StackItemFactory from './StackItemFactory.js';
 import { TexConstant } from './TexConstants.js';
-import { SourceMap } from './SourceMap.js';
 
 // Union types for abbreviation.
 export type EnvProp = string | number | boolean;
@@ -100,8 +99,6 @@ export interface NodeStack {
    */
   stopI: number;
 
-  sourceMap: SourceMap;
-
   /**
    * Returns nodes on the stack item's node stack as an Mml node. I.e., in case
    * the item contains more than one node, it creates an mrow.
@@ -129,8 +126,6 @@ export abstract class MmlStack implements NodeStack {
    * @override
    */
   public stopI: number = 0;
-
-  public sourceMap: SourceMap = new SourceMap(0);
 
   /**
    * @class
@@ -591,9 +586,6 @@ export abstract class BaseItem extends MmlStack implements StackItem {
       node.attributes.set(TexConstant.Attr.LATEXITEM, tex);
       if (tex !== '}') {
         node.attributes.set(TexConstant.Attr.LATEX, tex);
-        const startPos = prefix ? this.startI - prefix.length : this.startI;
-        node.attributes.set(TexConstant.Attr.LATEX_START, this.sourceMap.toOriginal(startPos));
-        node.attributes.set(TexConstant.Attr.LATEX_END, this.sourceMap.toOriginalEnd(this.stopI));
       }
     }
   }

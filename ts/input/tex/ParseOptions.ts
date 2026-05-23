@@ -30,7 +30,6 @@ import { MmlNode } from '../../core/MmlTree/MmlNode.js';
 import { MathItem } from '../../core/MathItem.js';
 import TexParser from './TexParser.js';
 import { TexConstant } from './TexConstants.js';
-import { SourceMap } from './SourceMap.js';
 import { defaultOptions, OptionList } from '../../util/Options.js';
 import { ParserConfiguration } from './Configuration.js';
 import { ColumnParser } from './ColumnParser.js';
@@ -185,29 +184,7 @@ export default class ParseOptions {
    * @param {TexParser} parser The new parser.
    */
   public pushParser(parser: TexParser) {
-    const parent = this.parsers[0];
     this.parsers.unshift(parser);
-    if (!parent) {
-      parser.sourceMap = new SourceMap(parser.string.length);
-      return;
-    }
-    const len = parser.string.length;
-    const braced = parent.i - 1 - len;
-    if (braced >= 0 && parent.string.slice(braced, braced + len) === parser.string) {
-      parser.sourceMap = parent.sourceMap.child(braced, braced + len);
-      return;
-    }
-    const unbraced = parent.i - len;
-    if (unbraced >= 0 && parent.string.slice(unbraced, unbraced + len) === parser.string) {
-      parser.sourceMap = parent.sourceMap.child(unbraced, unbraced + len);
-      return;
-    }
-    const last = parent.lastSliceStart;
-    if (last >= 0 && parent.string.slice(last, last + len) === parser.string) {
-      parser.sourceMap = parent.sourceMap.child(last, last + len);
-      return;
-    }
-    parser.sourceMap = parent.sourceMap.child(parent.i, parent.i);
   }
 
   /**

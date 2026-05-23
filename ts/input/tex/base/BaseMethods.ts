@@ -194,7 +194,6 @@ const BaseMethods: { [key: string]: ParseMethod } = {
         parser.string.substring(0, parser.i + 1) +
         ' ' +
         parser.string.substring(parser.i + 1);
-      parser.sourceMap.recordInsertion(parser.i + 1);
     }
     let primes: MmlNode;
     let base: MmlNode | void;
@@ -272,7 +271,6 @@ const BaseMethods: { [key: string]: ParseMethod } = {
         parser.string.substring(0, parser.i + 1) +
         ' ' +
         parser.string.substring(parser.i + 1);
-      parser.sourceMap.recordInsertion(parser.i + 1);
     }
     let primes, base;
     const top = parser.stack.Top();
@@ -722,7 +720,6 @@ const BaseMethods: { [key: string]: ParseMethod } = {
    */
   Sqrt(parser: TexParser, name: string) {
     const n = parser.GetBrackets(name);
-    const bracketSliceStart = parser.lastSliceStart;
     let arg = parser.GetArgument(name);
     if (arg === '\\frac') {
       arg +=
@@ -734,7 +731,6 @@ const BaseMethods: { [key: string]: ParseMethod } = {
       mml = parser.create('node', 'msqrt', [mml]);
     } else {
       // @test General Root
-      parser.lastSliceStart = bracketSliceStart;
       mml = parser.create('node', 'mroot', [mml, parseRoot(parser, n)]);
     }
     parser.Push(mml);
