@@ -70,7 +70,6 @@
     "tsconfig*"
   ],
   "scripts": {
-    "prepare": "tsc --project tsconfig/mjs.json --outDir mjs || true",
     "=============================================================================== code hygene": "",
     "lint": "check() { eslint ${1:-ts/}; }; check",
     "lint:fix": "fix() { eslint --fix ${1:-ts/}; }; fix",
