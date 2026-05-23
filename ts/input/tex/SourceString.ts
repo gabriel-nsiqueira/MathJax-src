@@ -69,16 +69,21 @@ export class SourceString {
   }
 
   /**
-   * Replace [start, end) with a replacement SourceString.
-   * The replacement carries its own positions.
+   * Replace [start, end) with replacement text. If a SourceString is given,
+   * its positions are used. If a plain string is given, all replacement
+   * characters map to the original position of `start` (macro expansion).
    */
-  splice(start: number, end: number, replacement: SourceString) {
+  splice(start: number, end: number, replacement: SourceString | string) {
+    const rText = typeof replacement === 'string' ? replacement : replacement._text;
+    const rPos = typeof replacement === 'string'
+      ? new Array(replacement.length).fill(this.toOriginal(start))
+      : replacement._pos;
     this._pos = [
       ...this._pos.slice(0, start),
-      ...replacement._pos,
+      ...rPos,
       ...this._pos.slice(end),
     ];
-    this._text = this._text.slice(0, start) + replacement._text + this._text.slice(end);
+    this._text = this._text.slice(0, start) + rText + this._text.slice(end);
   }
 
   /**
