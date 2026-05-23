@@ -167,5 +167,7 @@ export const TexConstant = {
   Attr: {
     LATEX: 'data-latex',
     LATEXITEM: 'data-latex-item',
+    LATEX_START: 'data-latex-start',
+    LATEX_END: 'data-latex-end',
   },
 };

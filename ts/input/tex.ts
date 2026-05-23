@@ -220,6 +220,8 @@ export class TeX<N, T, D> extends AbstractInputJax<N, T, D> {
     }
     node = this.parseOptions.nodeFactory.create('node', 'math', [node]);
     node.attributes.set(TexConstant.Attr.LATEX, this.latex);
+    node.attributes.set(TexConstant.Attr.LATEX_START, 0);
+    node.attributes.set(TexConstant.Attr.LATEX_END, this.latex.length);
     if (math.display) {
       NodeUtil.setAttribute(node, 'display', 'block');
     }

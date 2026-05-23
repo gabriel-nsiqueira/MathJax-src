@@ -35,6 +35,7 @@ import { BaseItem, StackItem, EnvList } from './StackItem.js';
 import { Token } from './Token.js';
 import { OptionList } from '../../util/Options.js';
 import { TexConstant } from './TexConstants.js';
+import { SourceMap } from './SourceMap.js';
 
 /**
  * The main Tex Parser class.
@@ -72,6 +73,14 @@ export default class TexParser {
    * A stack to save the string positions when we restart the parser.
    */
   private saveI: number = 0;
+
+  public sourceMap: SourceMap = new SourceMap(0);
+
+  /**
+   * Position where the last GetArgument/GetBrackets/GetUpTo extracted its
+   * content from. Used by pushParser to compute sub-parser sourceMap.
+   */
+  public lastSliceStart: number = 0;
 
   /**
    * @class
@@ -225,6 +234,7 @@ export default class TexParser {
       arg.startI = this.saveI;
       arg.stopI = this.i;
       arg.startStr = this.string;
+      arg.sourceMap = this.sourceMap;
     }
     if (arg instanceof AbstractMmlNode && arg.isInferred) {
       this.PushAll(arg.childNodes);
@@ -256,6 +266,8 @@ export default class TexParser {
     const latex = this.trimTex(this.string);
     if (latex) {
       node.attributes.set(TexConstant.Attr.LATEX, latex);
+      node.attributes.set(TexConstant.Attr.LATEX_START, this.sourceMap.toOriginal(0));
+      node.attributes.set(TexConstant.Attr.LATEX_END, this.sourceMap.toOriginal(this.string.length));
     }
     return node;
   }
@@ -347,6 +359,7 @@ export default class TexParser {
         }
         return null;
       case '\\':
+        this.lastSliceStart = this.i;
         this.i++;
         return '\\' + this.GetCS();
       case '{': {
@@ -362,6 +375,7 @@ export default class TexParser {
               break;
             case '}':
               if (--parens === 0) {
+                this.lastSliceStart = j;
                 return this.string.slice(j, this.i - 1);
               }
               break;
@@ -371,6 +385,7 @@ export default class TexParser {
         throw new TexError('MissingCloseBrace', 'Missing close brace');
       }
     }
+    this.lastSliceStart = this.i;
     const c = this.getCodePoint();
     this.i += c.length;
     return c;
@@ -419,6 +434,7 @@ export default class TexParser {
         case ']':
           if (braces === 0) {
             if (!matchBrackets || brackets === 0) {
+              this.lastSliceStart = j;
               return this.string.slice(j, this.i - 1);
             }
             brackets--;
@@ -647,6 +663,9 @@ export default class TexParser {
       return;
     }
     const LATEX = TexConstant.Attr.LATEX;
+    const START = TexConstant.Attr.LATEX_START;
+    const END = TexConstant.Attr.LATEX_END;
+    const sm = this.sourceMap;
     //
     // Check if there is a latex-item and process it if there isn't already latex attached.
     //
@@ -692,6 +711,8 @@ export default class TexParser {
               this.composeBraces(node.childNodes[2]);
             } else if (!node.childNodes[2].attributes.hasExplicit(LATEX)) {
               node.childNodes[2].attributes.set(LATEX, str);
+              node.childNodes[2].attributes.set(START, sm.toOriginal(this.i - str.length));
+              node.childNodes[2].attributes.set(END, sm.toOriginal(this.i));
             }
           }
           //
@@ -714,6 +735,8 @@ export default class TexParser {
               this.composeBraces(node.childNodes[1]);
             } else if (!node.childNodes[1].attributes.hasExplicit(LATEX)) {
               node.childNodes[1].attributes.set(LATEX, str);
+              node.childNodes[1].attributes.set(START, sm.toOriginal(this.i - str.length));
+              node.childNodes[1].attributes.set(END, sm.toOriginal(this.i));
             }
           }
           //
@@ -739,6 +762,8 @@ export default class TexParser {
     // Otherwise, set the node's latex.
     //
     node.attributes.set(LATEX, str);
+    node.attributes.set(START, sm.toOriginal(old));
+    node.attributes.set(END, sm.toOriginal(old + str.length));
   }
 
   /**
@@ -762,6 +787,40 @@ export default class TexParser {
       comp +
       node.childNodes[pos2].attributes.get(LATEX);
     node.attributes.set(LATEX, expr);
+    this.deriveOffsetsFromChildren(node);
+  }
+
+  /**
+   * Derives source offsets for a composed node from the min start / max end
+   * of its children that have offsets set.
+   */
+  private deriveOffsetsFromChildren(node: MmlNode) {
+    const START = TexConstant.Attr.LATEX_START;
+    const END = TexConstant.Attr.LATEX_END;
+    const [minS, maxE] = this.collectChildOffsets(node);
+    if (minS !== Infinity) {
+      node.attributes.set(START, minS);
+      node.attributes.set(END, maxE);
+    }
+  }
+
+  private collectChildOffsets(node: MmlNode): [number, number] {
+    const START = TexConstant.Attr.LATEX_START;
+    const END = TexConstant.Attr.LATEX_END;
+    let minS = Infinity, maxE = -Infinity;
+    for (const child of node.childNodes) {
+      if (!child?.attributes) continue;
+      const s = child.attributes.getExplicit(START) as number;
+      const e = child.attributes.getExplicit(END) as number;
+      if (s !== undefined && s < minS) minS = s;
+      if (e !== undefined && e > maxE) maxE = e;
+      if (s === undefined) {
+        const [cs, ce] = this.collectChildOffsets(child);
+        if (cs < minS) minS = cs;
+        if (ce > maxE) maxE = ce;
+      }
+    }
+    return [minS, maxE];
   }
 
   /**
@@ -772,6 +831,13 @@ export default class TexParser {
   private composeBraces(atom: MmlNode) {
     const str = this.composeBracedContent(atom);
     atom.attributes.set(TexConstant.Attr.LATEX, `{${str}}`);
+    this.deriveOffsetsFromChildren(atom);
+    const s = atom.attributes.getExplicit(TexConstant.Attr.LATEX_START) as number;
+    if (s !== undefined) {
+      atom.attributes.set(TexConstant.Attr.LATEX_START, s - 1);
+      atom.attributes.set(TexConstant.Attr.LATEX_END,
+        (atom.attributes.getExplicit(TexConstant.Attr.LATEX_END) as number) + 1);
+    }
   }
 
   /**
