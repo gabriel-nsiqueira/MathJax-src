@@ -128,6 +128,7 @@
     "clean": "pnpm -s clean:mod cjs && pnpm -s cjs:bundle:clean && pnpm -s clean:mod mjs && pnpm -s clean:dir bundle",
     "compile-cjs": "pnpm -s cjs:compile",
     "compile-mjs": "pnpm -s mjs:compile",
+    "prepare": "pnpm -s mjs:src:build",
     "build-cjs": "pnpm -s cjs:build",
     "build-mjs": "pnpm -s mjs:build",
     "make-cjs-components": "pnpm -s cjs:components:make && pnpm -s cjs:bundle:finalize",
