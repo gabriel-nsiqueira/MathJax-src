@@ -36,7 +36,7 @@ const ColorV2Methods: { [key: string]: ParseMethod } = {
    */
   Color(parser: TexParser, name: string) {
     // @test Color Frac
-    const color = parser.GetArgument(name);
+    const color = parser.GetArgument(name).toString();
     const old = parser.stack.env['color'];
     parser.stack.env['color'] = color;
     const math = parser.ParseArg(name);

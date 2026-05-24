@@ -38,6 +38,7 @@ import StackItemFactory from '../StackItemFactory.js';
 import { CheckType, BaseItem, StackItem, EnvList } from '../StackItem.js';
 import { TRBL } from '../../../util/Styles.js';
 import { TexConstant } from '../TexConstants.js';
+import { SourceString } from '../SourceString.js';
 
 /**
  * Initial item on the stack. It's pushed when parsing begins.
@@ -1196,29 +1197,27 @@ export class ArrayItem extends BaseItem {
     //
     if (term !== '&') {
       found =
-        !!entry.trim() || !!(n || (term && term.substring(0, 4) !== '\\end'));
+        !!entry.trim().length || !!(n || (term && term.substring(0, 4) !== '\\end'));
       if (cextra[n + 1] && !cextra[n]) {
         end = (end || '') + '&'; // extra entries follow this one
         this.atEnd = true;
       }
     }
-    if (!found && !prefix) return;
+    if (!found && !prefix.length) return;
     const parser = this.parser;
+    let entryStr = entry;
     if (found) {
-      //
-      //  Add the start, entry, and end values together
-      //
       if (start) {
-        entry = ParseUtil.addArgs(parser, start, entry);
+        entryStr = ParseUtil.addArgs(parser, SourceString.fromSourceRange(start, entry, 0, entry.length), entryStr);
       }
       if (end) {
-        entry = ParseUtil.addArgs(parser, entry, end);
+        entryStr = ParseUtil.addArgs(parser, entryStr, SourceString.fromSourceRange(end, entry, 0, entry.length));
       }
-      //
-      //  If row aligning, use text mode
-      //
       if (ralign) {
-        entry = '\\text{' + entry.trim() + '}';
+        const trimmed = entryStr.trim();
+        entryStr = SourceString.fromSourceRange('\\text{', trimmed, 0, trimmed.length)
+          .concat(trimmed)
+          .concat(SourceString.fromSourceRange('}', trimmed, 0, trimmed.length));
       }
       if (start || end || ralign) {
         if (
@@ -1233,36 +1232,35 @@ export class ArrayItem extends BaseItem {
         }
       }
     }
-    //
-    //  Add any \hline or \hfill macros
-    //
-    if (prefix) {
-      entry = ParseUtil.addArgs(parser, prefix, entry);
+    if (prefix.length) {
+      entryStr = ParseUtil.addArgs(parser, prefix, entryStr);
     }
-    //
-    //  Insert the entry into the parser string
-    //
-    parser.string = ParseUtil.addArgs(parser, entry, parser.string);
+    parser.string = ParseUtil.addArgs(parser, entryStr, parser.string.slice(0));
     parser.i = 0;
   }
 
   /**
    * Get the TeX string for the contents of the coming cell (if any)
    *
-   * @returns {[string, string, string, boolean]} List of values for prefix,
+   * @returns {[SourceString, SourceString, string, boolean]} List of values for prefix,
    *     entry, term, found.
    */
-  protected getEntry(): [string, string, string, boolean] {
+  protected getEntry(): [SourceString, SourceString, string, boolean] {
     const parser = this.parser;
     const pattern = /^([^]*?)([&{}]|\\\\|\\(?:begin|end)\s*\{array\}|\\cr|\\)/;
     let braces = 0;
     let envs = 0;
     let i = parser.i;
     let match;
-    const fail: [string, string, string, boolean] = ['', '', '', false];
+    const fail: [SourceString, SourceString, string, boolean] = [
+      new SourceString(''),
+      new SourceString(''),
+      '',
+      false,
+    ];
     while ((match = parser.string.slice(i).match(pattern)) !== null) {
       i += match[0].length;
-      switch (match[2]) {
+      switch (match[2].toString()) {
         case '\\':
           i++;
           break;
@@ -1296,7 +1294,7 @@ export class ArrayItem extends BaseItem {
           }
           parser.string = parser.string.slice(i);
           parser.i = 0;
-          return [prefix?.[0] || '', entry, match[2], true];
+          return [prefix?.[0] || new SourceString(''), entry, match[2].toString(), true];
         }
       }
     }

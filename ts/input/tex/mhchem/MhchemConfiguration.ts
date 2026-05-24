@@ -32,6 +32,7 @@ import BaseMethods from '../base/BaseMethods.js';
 import { AmsMethods } from '../ams/AmsMethods.js';
 import { mhchemParser } from '#mhchem/mhchemParser.js';
 import { TEXCLASS } from '../../../core/MmlTree/MmlNode.js';
+import { SourceString } from '../SourceString.js';
 
 /**
  * Creates mo token elements with the proper attributes
@@ -100,14 +101,14 @@ export const MhchemMethods: { [key: string]: ParseMethod } = {
     const arg = parser.GetArgument(name);
     let tex;
     try {
-      tex = mhchemParser.toTex(arg, machine);
+      tex = mhchemParser.toTex(arg.toString(), machine);
       for (const [name, pattern] of MhchemReplacements.entries()) {
         tex = tex.replace(pattern, name as string);
       }
     } catch (err) {
       throw new TexError(err[0], err[1]);
     }
-    parser.string = tex + parser.string.substring(parser.i);
+    parser.string = SourceString.fromSourceRange(tex, parser.string, parser.currentMacroStart(), parser.i).concat(parser.string.slice(parser.i));
     parser.i = 0;
   },
 

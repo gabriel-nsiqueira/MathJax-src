@@ -43,6 +43,7 @@ import {
 } from '../newcommand/NewcommandUtil.js';
 import NewcommandMethods from '../newcommand/NewcommandMethods.js';
 import { PrioritizedList } from '../../../util/PrioritizedList.js';
+import { SourceString } from '../SourceString.js';
 
 import { MathtoolsTags } from './MathtoolsTags.js';
 import { MathtoolsUtil } from './MathtoolsUtil.js';
@@ -71,8 +72,8 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
     open: string,
     close: string
   ): ParseResult {
-    const align = parser.GetBrackets(`\\begin{${begin.getName()}}`, 'c');
-    return MathtoolsMethods.Array(parser, begin, open, close, align);
+    const align = parser.GetBrackets(`\\begin{${begin.getName()}}`, new SourceString('c'));
+    return MathtoolsMethods.Array(parser, begin, open, close, align.toString());
   },
 
   /**
@@ -95,8 +96,8 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
     if (!align) {
       align = parser.GetBrackets(
         `\\begin{${begin.getName()}}`,
-        parser.options.mathtools['smallmatrix-align']
-      );
+        new SourceString(parser.options.mathtools['smallmatrix-align'])
+      ).toString();
     }
     return MathtoolsMethods.Array(
       parser,
@@ -127,12 +128,12 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
     //  Note that if [pos] is missing, [width] can still be provided.
     //
     if (!parser.nextIsSpace()) {
-      const arg = parser.GetBrackets(name, pos);
+      const arg = parser.GetBrackets(name, new SourceString(pos));
       if (arg.match(/^[ctb]$/)) {
-        pos = arg;
-        width = !parser.nextIsSpace() ? parser.GetBrackets(name, '') : '';
+        pos = arg.toString();
+        width = !parser.nextIsSpace() ? parser.GetBrackets(name, new SourceString('')).toString() : '';
       } else {
-        width = arg;
+        width = arg.toString();
       }
       if (width && !UnitUtil.matchDimen(width)[0]) {
         throw new TexError(
@@ -276,7 +277,7 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
    * @param {boolean} cramped    True if the style should be cramped
    */
   MathLap(parser: TexParser, name: string, pos: string, cramped: boolean) {
-    const style = parser.GetBrackets(name, '').trim();
+    const style = parser.GetBrackets(name, new SourceString('')).trim().toString();
     const mml = parser.create(
       'node',
       'mstyle',
@@ -301,7 +302,7 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
    * @param {string} name        The macro name.
    */
   Cramped(parser: TexParser, name: string) {
-    const style = parser.GetBrackets(name, '').trim();
+    const style = parser.GetBrackets(name, new SourceString('')).trim().toString();
     const arg = parser.ParseArg(name);
     const mml = parser.create('node', 'mstyle', [arg], {
       'data-cramped': true,
@@ -318,7 +319,7 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
    * @param {string} pos         The position (l, c, r) of the lapped content
    */
   MtLap(parser: TexParser, name: string, pos: string) {
-    const content = ParseUtil.internalMath(parser, parser.GetArgument(name), 0);
+    const content = ParseUtil.internalMath(parser, parser.GetArgument(name).toString(), 0);
     const mml = parser.create('node', 'mpadded', content, { width: 0 });
     if (pos !== 'r') {
       NodeUtil.setAttribute(
@@ -338,16 +339,17 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
    */
   MathMakeBox(parser: TexParser, name: string) {
     const width = parser.GetBrackets(name);
-    const pos = parser.GetBrackets(name, 'c');
+    const pos = parser.GetBrackets(name, new SourceString('c'));
     const mml = parser.create('node', 'mpadded', [parser.ParseArg(name)]);
     if (width) {
-      NodeUtil.setAttribute(mml, 'width', width);
+      NodeUtil.setAttribute(mml, 'width', width.toString());
     }
-    const align = lookup(pos.toLowerCase(), { c: 'center', r: 'right' }, '');
+    const posStr = pos.toString();
+    const align = lookup(posStr.toLowerCase(), { c: 'center', r: 'right' }, '');
     if (align) {
       NodeUtil.setAttribute(mml, 'data-align', align);
     }
-    if (pos.toLowerCase() !== pos) {
+    if (posStr.toLowerCase() !== posStr) {
       NodeUtil.setAttribute(mml, 'data-overflow', 'linebreak');
     }
     parser.Push(mml);
@@ -370,8 +372,8 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
    * @param {string} name        The macro name.
    */
   UnderOverBracket(parser: TexParser, name: string) {
-    const thickness = length2em(parser.GetBrackets(name, '.1em'), 0.1);
-    const height = parser.GetBrackets(name, '.2em');
+    const thickness = length2em(parser.GetBrackets(name, new SourceString('.1em')).toString(), 0.1);
+    const height = parser.GetBrackets(name, new SourceString('.2em')).toString();
     const arg = parser.GetArgument(name);
     const [pos, accent, border] =
       name.charAt(1) === 'o'
@@ -430,11 +432,11 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
     //  Get the argument and the rest of the TeX string.
     //
     const arg = parser.GetArgument(name);
-    const rest = parser.string.substring(parser.i);
+    const rest = parser.string.slice(parser.i);
     //
     //  Put the argument back, followed by "&&", and a marker that we look for below.
     //
-    parser.string = arg + '&&\\endAboxed';
+    parser.string = arg.concat(SourceString.fromSourceRange('&&\\endAboxed', arg, 0, arg.length));
     parser.i = 0;
     //
     //  Get the two parts separated by ampersands, and ignore the rest.
@@ -449,10 +451,15 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
     const tex = ParseUtil.substituteArgs(
       parser,
       [left, right],
-      `\\rlap{\\${box}{${bmath}#1{}#2${emath}}}` +
-        '\\kern.267em\\phantom{#1}&\\phantom{{}#2}\\kern.267em'
+      SourceString.fromSourceRange(
+        `\\rlap{\\${box}{${bmath}#1{}#2${emath}}}` +
+          '\\kern.267em\\phantom{#1}&\\phantom{{}#2}\\kern.267em',
+        arg,
+        0,
+        arg.length
+      )
     );
-    parser.string = tex + rest;
+    parser.string = tex.concat(rest);
     parser.i = 0;
   },
 
@@ -489,12 +496,14 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
       throw new TexError('BetweenLines', '%1 must be on a row by itself', name);
     }
     const star = parser.GetStar();
-    const symbol = parser.GetBrackets(name, '\\Updownarrow');
+    const symbol = parser.GetBrackets(name, new SourceString('\\Updownarrow'));
     if (star) {
       top.EndEntry();
       top.EndEntry();
     }
-    const tex = star ? '\\quad' + symbol : symbol + '\\quad';
+    const tex = star
+      ? new SourceString('\\quad').concat(symbol)
+      : symbol.concat(new SourceString('\\quad'));
     const mml = new TexParser(
       tex,
       parser.stack.env,
@@ -512,8 +521,18 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
    * @param {string} name        The macro name.
    */
   VDotsWithin(parser: TexParser, name: string) {
-    const arg =
-      '\\mmlToken{mi}{}' + parser.GetArgument(name) + '\\mmlToken{mi}{}';
+    const baseArg = parser.GetArgument(name);
+    const arg = SourceString.fromSourceRange(
+      '\\mmlToken{mi}{}',
+      baseArg,
+      0,
+      baseArg.length
+    ).concat(baseArg).concat(SourceString.fromSourceRange(
+      '\\mmlToken{mi}{}',
+      baseArg,
+      0,
+      baseArg.length
+    ));
     const base = new TexParser(
       arg,
       parser.stack.env,
@@ -620,34 +639,40 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
     post: string = ''
   ) {
     const star = parser.GetStar();
-    const size = star ? '' : parser.GetBrackets(name);
+    const sizeStr = star ? '' : parser.GetBrackets(name)?.toString() || '';
     const [left, right, after] = star
       ? ['\\mathopen{\\left', '\\right', '}\\mathclose{}']
-      : size
-        ? [size + 'l', size + 'r', '']
+      : sizeStr
+        ? [sizeStr + 'l', sizeStr + 'r', '']
         : ['', '', ''];
-    const delim = star ? '\\middle' : size || '';
+    const delim = star ? '\\middle' : sizeStr;
+    let preStr = SourceString.fromSourceRange(pre, parser.string, parser.currentMacroStart(), parser.i);
+    let bodyStr = SourceString.fromSourceRange(body, parser.string, parser.currentMacroStart(), parser.i);
+    let postStr = SourceString.fromSourceRange(post, parser.string, parser.currentMacroStart(), parser.i);
     if (n) {
-      const args: string[] = [];
+      const args: SourceString[] = [];
       for (let i = args.length; i < n; i++) {
         args.push(parser.GetArgument(name));
       }
-      pre = ParseUtil.substituteArgs(parser, args, pre);
-      body = ParseUtil.substituteArgs(parser, args, body);
-      post = ParseUtil.substituteArgs(parser, args, post);
+      preStr = ParseUtil.substituteArgs(parser, args, preStr);
+      bodyStr = ParseUtil.substituteArgs(parser, args, bodyStr);
+      postStr = ParseUtil.substituteArgs(parser, args, postStr);
     }
-    body = body.replace(/\\delimsize/g, delim);
+    bodyStr = bodyStr.replace(/\\delimsize/g, delim);
     parser.string = [
-      pre,
-      left,
-      open,
-      body,
-      right,
-      close,
-      after,
-      post,
-      parser.string.substring(parser.i),
-    ].reduce((s, part) => ParseUtil.addArgs(parser, s, part), '');
+      preStr,
+      SourceString.fromSourceRange(left, parser.string, parser.currentMacroStart(), parser.i),
+      SourceString.fromSourceRange(open, parser.string, parser.currentMacroStart(), parser.i),
+      bodyStr,
+      SourceString.fromSourceRange(right, parser.string, parser.currentMacroStart(), parser.i),
+      SourceString.fromSourceRange(close, parser.string, parser.currentMacroStart(), parser.i),
+      SourceString.fromSourceRange(after, parser.string, parser.currentMacroStart(), parser.i),
+      postStr,
+      parser.string.slice(parser.i),
+    ].reduce(
+      (s, part) => ParseUtil.addArgs(parser, s, part),
+      new SourceString('')
+    );
     parser.i = 0;
     ParseUtil.checkMaxMacros(parser);
   },
@@ -660,8 +685,8 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
    */
   DeclarePairedDelimiter(parser: TexParser, name: string) {
     const cs = NewcommandUtil.GetCsNameArgument(parser, name);
-    const open = parser.GetArgument(name);
-    const close = parser.GetArgument(name);
+    const open = parser.GetArgument(name).toString();
+    const close = parser.GetArgument(name).toString();
     MathtoolsUtil.addPairedDelims(parser, cs, [open, close]);
     parser.Push(parser.itemFactory.create('null'));
   },
@@ -675,9 +700,9 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
   DeclarePairedDelimiterX(parser: TexParser, name: string) {
     const cs = NewcommandUtil.GetCsNameArgument(parser, name);
     const n = NewcommandUtil.GetArgCount(parser, name);
-    const open = parser.GetArgument(name);
-    const close = parser.GetArgument(name);
-    const body = parser.GetArgument(name);
+    const open = parser.GetArgument(name).toString();
+    const close = parser.GetArgument(name).toString();
+    const body = parser.GetArgument(name).toString();
     MathtoolsUtil.addPairedDelims(parser, cs, [open, close, body, n]);
     parser.Push(parser.itemFactory.create('null'));
   },
@@ -691,11 +716,11 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
   DeclarePairedDelimiterXPP(parser: TexParser, name: string) {
     const cs = NewcommandUtil.GetCsNameArgument(parser, name);
     const n = NewcommandUtil.GetArgCount(parser, name);
-    const pre = parser.GetArgument(name);
-    const open = parser.GetArgument(name);
-    const close = parser.GetArgument(name);
-    const post = parser.GetArgument(name);
-    const body = parser.GetArgument(name);
+    const pre = parser.GetArgument(name).toString();
+    const open = parser.GetArgument(name).toString();
+    const close = parser.GetArgument(name).toString();
+    const post = parser.GetArgument(name).toString();
+    const body = parser.GetArgument(name).toString();
     MathtoolsUtil.addPairedDelims(parser, cs, [
       open,
       close,
@@ -760,8 +785,8 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
         '}';
       parser.string = ParseUtil.addArgs(
         parser,
-        tex,
-        parser.string.substring(parser.i)
+        SourceString.fromSourceRange(tex, parser.string, parser.currentMacroStart(), parser.i),
+        parser.string.slice(parser.i)
       );
       parser.i = 0;
     }
@@ -876,8 +901,8 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
    * @param {string} name        The macro name.
    */
   XMathStrut(parser: TexParser, name: string) {
-    let dd = parser.GetBrackets(name);
-    let dh = parser.GetArgument(name);
+    let dd = parser.GetBrackets(name)?.toString();
+    let dh = parser.GetArgument(name).toString();
     dh = MathtoolsUtil.plusOrMinus(name, dh);
     dd = MathtoolsUtil.plusOrMinus(name, dd || dh);
     parser.Push(
@@ -942,13 +967,13 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
         name
       );
     }
-    const id = parser.GetArgument(name).trim();
+    const id = parser.GetArgument(name).trim().toString();
     if (!id) {
       throw new TexError('InvalidTagFormID', "Tag form name can't be empty");
     }
-    const format = parser.GetBrackets(name, '');
-    const left = parser.GetArgument(name);
-    const right = parser.GetArgument(name);
+    const format = parser.GetBrackets(name, new SourceString('')).toString();
+    const left = parser.GetArgument(name).toString();
+    const right = parser.GetArgument(name).toString();
     if (!renew && tags.mtFormats.has(id)) {
       throw new TexError('DuplicateTagForm', 'Duplicate tag form: %1', id);
     }
@@ -971,7 +996,7 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
         name
       );
     }
-    const id = parser.GetArgument(name).trim();
+    const id = parser.GetArgument(name).trim().toString();
     if (!id) {
       tags.mtCurrent = null;
       parser.Push(parser.itemFactory.create('null'));
@@ -1006,7 +1031,7 @@ export const MathtoolsMethods: { [key: string]: ParseMethod } = {
       }
     });
     const args = parser.GetArgument(name);
-    const keys = ParseUtil.keyvalOptions(args, allowed, true);
+    const keys = ParseUtil.keyvalOptions(args.toString(), allowed, true);
     for (const id of Object.keys(keys)) {
       if (id === 'legacycolonsymbols' && options[id] !== keys[id]) {
         if (options[id]) {

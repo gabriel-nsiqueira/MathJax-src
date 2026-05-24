@@ -41,7 +41,7 @@ const ExtpfeilMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The name of the calling macro.
    */
   NewExtArrow(parser: TexParser, name: string) {
-    let cs = parser.GetArgument(name);
+    const cs = parser.GetArgument(name);
     const space = parser.GetArgument(name);
     const chr = parser.GetArgument(name);
     if (!cs.match(/^\\([a-z]+|.)$/i)) {
@@ -65,12 +65,12 @@ const ExtpfeilMethods: { [key: string]: ParseMethod } = {
         name
       );
     }
-    cs = cs.substring(1);
+    const csName = cs.substring(1);
     const spaces = space.split(',');
-    NewcommandUtil.addMacro(parser, cs, ExtpfeilMethods.xArrow, [
-      parseInt(chr),
-      parseInt(spaces[0]),
-      parseInt(spaces[1]),
+    NewcommandUtil.addMacro(parser, csName, ExtpfeilMethods.xArrow, [
+      parseInt(chr.toString()),
+      parseInt(spaces[0].toString()),
+      parseInt(spaces[1].toString()),
     ]);
     parser.Push(parser.itemFactory.create('null'));
   },

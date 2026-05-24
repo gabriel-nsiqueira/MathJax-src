@@ -31,6 +31,7 @@ import TexError from './TexError.js';
 import { entities } from '../../util/Entities.js';
 import { MmlMunderover } from '../../core/MmlTree/MmlNodes/munderover.js';
 import { UnitUtil } from './UnitUtil.js';
+import { SourceString } from './SourceString.js';
 
 /**
  * The data needed for checking the value of a key-value pair.
@@ -269,7 +270,7 @@ export const ParseUtil = {
     let mo;
     if (big) {
       mo = new TexParser(
-        '\\' + big + 'l' + open,
+        new SourceString('\\' + big + 'l' + open),
         configuration.parser.stack.env,
         configuration
       ).mml();
@@ -291,7 +292,7 @@ export const ParseUtil = {
     NodeUtil.appendChildren(mrow, [mo, mml]);
     if (big) {
       mo = new TexParser(
-        '\\' + big + 'r' + close,
+        new SourceString('\\' + big + 'r' + close),
         configuration.parser.stack.env,
         configuration
       ).mml();
@@ -377,7 +378,7 @@ export const ParseUtil = {
     const D = '{\\bigg' + side + ' ' + fence + '}';
     const T = '{\\big' + side + ' ' + fence + '}';
     return new TexParser(
-      '\\mathchoice' + D + T + T + T,
+      new SourceString('\\mathchoice' + D + T + T + T),
       {},
       configuration
     ).mml();
@@ -456,7 +457,7 @@ export const ParseUtil = {
             // @test Interspersed Text
             node = parser.create('node', 'TeXAtom', [
               new TexParser(
-                text.slice(k, i - 1),
+                new SourceString(text.slice(k, i - 1)),
                 {},
                 parser.configuration
               ).mml(),
@@ -483,7 +484,7 @@ export const ParseUtil = {
           if (match === '}' && braces === 0) {
             // @test Mbox Eqref, Mbox Math
             const atom = new TexParser(
-              text.slice(k, i),
+              new SourceString(text.slice(k, i)),
               {},
               parser.configuration
             ).mml();
@@ -529,7 +530,7 @@ export const ParseUtil = {
               // @test Mbox Internal Display
               node = parser.create('node', 'TeXAtom', [
                 new TexParser(
-                  text.slice(k, i - 2),
+                  new SourceString(text.slice(k, i - 2)),
                   {},
                   parser.configuration
                 ).mml(),
@@ -702,7 +703,7 @@ export const ParseUtil = {
       array.arraydef.align = 'axis';
     } else if (align) {
       if (parser) {
-        parser.string = `[${align}]` + parser.string.slice(parser.i);
+        parser.string = SourceString.fromSourceRange(`[${align}]`, parser.string, parser.currentMacroStart(), parser.i).concat(parser.string.slice(parser.i));
         parser.i = 0;
       } else {
         array.arraydef.align = align;
@@ -715,41 +716,47 @@ export const ParseUtil = {
    * Replace macro parameters with their values.
    *
    * @param {TexParser} parser The current TeX parser.
-   * @param {string[]} args A list of arguments for macro parameters.
-   * @param {string} str The macro parameter string.
-   * @returns {string} The string with all parameters replaced by arguments.
+   * @param {SourceString[]} args A list of arguments for macro parameters.
+   * @param {SourceString} str The macro parameter string.
+   * @returns {SourceString} The string with all parameters replaced by arguments.
    */
-  substituteArgs(parser: TexParser, args: string[], str: string): string {
-    let text = '';
-    let newstring = '';
+  substituteArgs(parser: TexParser, args: SourceString[], str: SourceString): SourceString {
+    let textStart = 0;
+    let result = new SourceString('');
     let i = 0;
     while (i < str.length) {
-      let c = str.charAt(i++);
+      const c = str.charAt(i);
       if (c === '\\') {
-        text += c + str.charAt(i++);
+        i += 2;
       } else if (c === '#') {
-        c = str.charAt(i++);
-        if (c === '#') {
-          text += c;
+        i++;
+        const c2 = str.charAt(i);
+        if (c2 === '#') {
+          result = ParseUtil.addArgs(
+            parser,
+            result,
+            str.slice(textStart, i)
+          );
+          textStart = ++i;
         } else {
-          if (!c.match(/[1-9]/) || parseInt(c, 10) > args.length) {
+          if (!c2.match(/[1-9]/) || parseInt(c2, 10) > args.length) {
             throw new TexError(
               'IllegalMacroParam',
               'Illegal macro parameter reference'
             );
           }
-          newstring = ParseUtil.addArgs(
+          result = ParseUtil.addArgs(
             parser,
-            ParseUtil.addArgs(parser, newstring, text),
-            args[parseInt(c, 10) - 1]
+            ParseUtil.addArgs(parser, result, str.slice(textStart, i - 1)),
+            args[parseInt(c2, 10) - 1]
           );
-          text = '';
+          textStart = ++i;
         }
       } else {
-        text += c;
+        i++;
       }
     }
-    return ParseUtil.addArgs(parser, newstring, text);
+    return ParseUtil.addArgs(parser, result, str.slice(textStart));
   },
 
   /**
@@ -758,13 +765,13 @@ export const ParseUtil = {
    * be continued into the following text.
    *
    * @param {TexParser} parser The current TeX parser.
-   * @param {string} s1 The already expanded string.
-   * @param {string} s2 The string to add.
-   * @returns {string} The combined string.
+   * @param {SourceString} s1 The already expanded string.
+   * @param {SourceString} s2 The string to add.
+   * @returns {SourceString} The combined string.
    */
-  addArgs(parser: TexParser, s1: string, s2: string): string {
-    if (s2.match(/^[a-z]/i) && s1.match(/(^|[^\\])(\\\\)*\\[a-z]+$/i)) {
-      s1 += ' ';
+  addArgs(parser: TexParser, s1: SourceString, s2: SourceString): SourceString {
+    if (s2.toString().match(/^[a-z]/i) && s1.toString().match(/(^|[^\\])(\\\\)*\\[a-z]+$/i)) {
+      s1 = s1.concat(SourceString.fromSourceRange(' ', s1, Math.max(0, s1.length - 1), s1.length));
     }
     if (s1.length + s2.length > parser.configuration.options['maxBuffer']) {
       throw new TexError(
@@ -773,7 +780,7 @@ export const ParseUtil = {
           ' recursive macro call?'
       );
     }
-    return s1 + s2;
+    return s1.concat(s2);
   },
 
   /**

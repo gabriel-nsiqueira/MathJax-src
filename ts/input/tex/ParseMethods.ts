@@ -101,7 +101,7 @@ const ParseMethods = {
    */
   controlSequence(parser: TexParser, _c: string) {
     const name = parser.GetCS();
-    parser.parse(HandlerType.MACRO, [parser, name]);
+    parser.parse(HandlerType.MACRO, [parser, name.toString()]);
   },
 
   /**

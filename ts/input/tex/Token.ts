@@ -21,7 +21,7 @@
  * @author v.sorge@mathjax.org (Volker Sorge)
  */
 
-import { Args, Attributes, ParseMethod } from './Types.js';
+import { Attributes, MacroArgs, ParseMethod } from './Types.js';
 
 /**
  * Token class
@@ -57,12 +57,12 @@ export class Macro {
    * @class
    * @param {string} _token The token parsed
    * @param {ParseMethod} _func The parsing function for that token.
-   * @param {Args[]} _args Additional arguments for the function.
+   * @param {MacroArgs[]} _args Additional arguments for the function.
    */
   constructor(
     private _token: string,
     private _func: ParseMethod,
-    private _args: Args[] = []
+    private _args: MacroArgs[] = []
   ) {}
 
   public get token(): string {
@@ -73,7 +73,7 @@ export class Macro {
     return this._func;
   }
 
-  public get args(): Args[] {
+  public get args(): MacroArgs[] {
     return this._args;
   }
 }

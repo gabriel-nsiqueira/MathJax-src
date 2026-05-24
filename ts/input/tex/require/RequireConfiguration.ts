@@ -228,14 +228,14 @@ export const RequireMethods: { [key: string]: ParseMethod } = {
    */
   Require(parser: TexParser, name: string) {
     const required = parser.GetArgument(name);
-    if (required.match(/[^_a-zA-Z0-9]/) || required === '') {
+    if (required.match(/[^_a-zA-Z0-9]/) || required.toString() === '') {
       throw new TexError(
         'BadPackageName',
         'Argument for %1 is not a valid package name',
         name
       );
     }
-    RequireLoad(parser, required);
+    RequireLoad(parser, required.toString());
     parser.Push(parser.itemFactory.create('null'));
   },
 };

@@ -112,7 +112,7 @@ export const CasesMethods = {
       return null;
     } else {
       const left = parser.GetArgument('\\begin{' + begin.getName() + '}');
-      begin.setProperty('left', left);
+      begin.setProperty('left', left.toString());
       const array = BaseMethods.EqnArray(
         parser,
         begin,
@@ -191,7 +191,7 @@ export const CasesMethods = {
         //  (multi-letter names don't matter, as we will skip the rest of the
         //   characters in the main loop)
         //
-        const cs = (tex.slice(i + 1).match(/^[a-z]+|./i) || [])[0];
+        const cs = (tex.slice(i + 1).match(/^[a-z]+|./i) || [])[0]?.toString();
         if (
           cs === '\\' ||
           cs === 'cr' ||

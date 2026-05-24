@@ -27,6 +27,7 @@ import TexParser from '../TexParser.js';
 import { CommandMap } from '../TokenMap.js';
 import { ParseMethod } from '../Types.js';
 import BaseMethods from '../base/BaseMethods.js';
+import { SourceString } from '../SourceString.js';
 
 // Namespace
 export const ActionMethods: { [key: string]: ParseMethod } = {
@@ -39,8 +40,11 @@ export const ActionMethods: { [key: string]: ParseMethod } = {
    */
   Toggle(parser: TexParser, name: string) {
     const children = [];
-    let arg;
-    while ((arg = parser.GetArgument(name)) !== '\\endtoggle') {
+    let arg: SourceString;
+    while (
+      (arg = parser.GetArgument(name)) &&
+      arg.toString() !== '\\endtoggle'
+    ) {
       children.push(
         new TexParser(arg, parser.stack.env, parser.configuration).mml()
       );

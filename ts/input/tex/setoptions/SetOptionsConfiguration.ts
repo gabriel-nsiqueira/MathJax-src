@@ -146,8 +146,8 @@ export const SetOptionsUtil = {
  * @param {string} name        The name of the macro being processed.
  */
 function SetOptions(parser: TexParser, name: string) {
-  const extension = parser.GetBrackets(name) || 'tex';
-  const options = ParseUtil.keyvalOptions(parser.GetArgument(name));
+  const extension = parser.GetBrackets(name)?.toString() || 'tex';
+  const options = ParseUtil.keyvalOptions(parser.GetArgument(name).toString());
   const config = parser.options.setoptions;
   if (!config.filterPackage(parser, extension)) return;
   for (const key of Object.keys(options)) {

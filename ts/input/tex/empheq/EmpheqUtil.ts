@@ -29,6 +29,7 @@ import { MmlNode } from '../../../core/MmlTree/MmlNode.js';
 import { MmlMtable } from '../../../core/MmlTree/MmlNodes/mtable.js';
 import { MmlMtd } from '../../../core/MmlTree/MmlNodes/mtd.js';
 import { BeginItem } from '../base/BaseItems.js';
+import { SourceString } from '../SourceString.js';
 
 export const EmpheqUtil = {
   /**
@@ -82,7 +83,7 @@ export const EmpheqUtil = {
       depth: 0,
       voffset: '-1height',
     });
-    const result = new TexParser(tex, parser.stack.env, parser.configuration);
+    const result = new TexParser(new SourceString(tex), parser.stack.env, parser.configuration);
     const mml = result.mml();
     if (env && result.configuration.tags.label) {
       (result.configuration.tags.currentTag as any).env = env;

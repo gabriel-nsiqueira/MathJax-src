@@ -38,6 +38,7 @@ import ParseOptions from './tex/ParseOptions.js';
 import { TagsFactory } from './tex/Tags.js';
 import { ParserConfiguration } from './tex/Configuration.js';
 import { TexConstant } from './tex/TexConstants.js';
+import { SourceString } from './tex/SourceString.js';
 // Import base as it is the default package loaded.
 import './tex/base/BaseConfiguration.js';
 
@@ -206,7 +207,7 @@ export class TeX<N, T, D> extends AbstractInputJax<N, T, D> {
     let parser;
     try {
       parser = new TexParser(
-        this.latex,
+        new SourceString(this.latex),
         { display: math.display, isInner: false },
         this.parseOptions
       );

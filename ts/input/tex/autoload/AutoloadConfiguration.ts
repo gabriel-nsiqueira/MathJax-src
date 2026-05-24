@@ -34,6 +34,7 @@ import {
 } from '../require/RequireConfiguration.js';
 import { Package } from '../../../components/package.js';
 import { expandable, defaultOptions } from '../../../util/Options.js';
+import { SourceString } from '../SourceString.js';
 
 /**
  * Autoload an extension when the first macro for it is encountered
@@ -66,9 +67,12 @@ function Autoload(
     //
     //  Put back the macro or \begin and read it again
     //
-    parser.string =
-      (isMacro ? name + ' ' : '\\begin{' + name.slice(1) + '}') +
-      parser.string.slice(parser.i);
+    parser.string = SourceString.fromSourceRange(
+      isMacro ? name + ' ' : '\\begin{' + name.slice(1) + '}',
+      parser.string,
+      parser.currentMacroStart(),
+      parser.i
+    ).concat(parser.string.slice(parser.i));
     parser.i = 0;
   }
   RequireLoad(parser, extension);

@@ -28,6 +28,7 @@ import TexParser from '../TexParser.js';
 import NodeUtil from '../NodeUtil.js';
 import { CommandMap } from '../TokenMap.js';
 import BaseMethods from '../base/BaseMethods.js';
+import { SourceString } from '../SourceString.js';
 
 /**
  * Implements \centerOver{base}{symbol}
@@ -36,7 +37,10 @@ import BaseMethods from '../base/BaseMethods.js';
  * @param {string} name        The name of the macro being processed.
  */
 function CenterOver(parser: TexParser, name: string) {
-  const arg = '{' + parser.GetArgument(name) + '}';
+  const baseArg = parser.GetArgument(name);
+  const arg = SourceString.fromSourceRange('{', baseArg, 0, baseArg.length)
+    .concat(baseArg)
+    .concat(SourceString.fromSourceRange('}', baseArg, 0, baseArg.length));
   const over = parser.ParseArg(name);
   const base = new TexParser(arg, parser.stack.env, parser.configuration).mml();
   const mml = parser.create('node', 'TeXAtom', [

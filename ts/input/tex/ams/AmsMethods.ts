@@ -41,6 +41,7 @@ import {
   AbstractMmlTokenNode,
 } from '../../../core/MmlTree/MmlNode.js';
 import { NewcommandUtil } from '../newcommand/NewcommandUtil.js';
+import { SourceString } from '../SourceString.js';
 
 /**
  * Utility for breaking the \sideset scripts from any other material.
@@ -115,7 +116,7 @@ export const AmsMethods: { [key: string]: ParseMethod } = {
       spacing,
       style
     );
-    return ParseUtil.setArrayAlign(array as ArrayItem, args, parser);
+    return ParseUtil.setArrayAlign(array as ArrayItem, args?.toString(), parser);
   },
 
   /**
@@ -153,7 +154,7 @@ export const AmsMethods: { [key: string]: ParseMethod } = {
         '\\begin{' + name + '}'
       );
     }
-    let count = parseInt(n, 10);
+    let count = parseInt(n.toString(), 10);
     while (count > 0) {
       align += 'rl';
       balign += 'bt';
@@ -183,7 +184,7 @@ export const AmsMethods: { [key: string]: ParseMethod } = {
       balign,
       spaceStr
     );
-    return ParseUtil.setArrayAlign(array as ArrayItem, valign, parser);
+    return ParseUtil.setArrayAlign(array as ArrayItem, valign?.toString(), parser);
   },
 
   /**
@@ -260,7 +261,7 @@ export const AmsMethods: { [key: string]: ParseMethod } = {
       width,
       true
     ) as FlalignItem;
-    item.setProperty('xalignat', 2 * parseInt(n));
+    item.setProperty('xalignat', 2 * parseInt(n.toString()));
     return item;
   },
 
@@ -351,7 +352,7 @@ export const AmsMethods: { [key: string]: ParseMethod } = {
     //
     //  Parse the argument using operator letters and grouping multiple letters.
     //
-    const op = UnitUtil.trimSpaces(parser.GetArgument(name));
+    const op = parser.GetArgument(name).trim();
     let mml = new TexParser(
       op,
       {
@@ -387,7 +388,7 @@ export const AmsMethods: { [key: string]: ParseMethod } = {
     if (!star) {
       const c = parser.GetNext();
       const i = parser.i;
-      if (c === '\\' && ++parser.i && parser.GetCS() !== 'limits') {
+      if (c === '\\' && ++parser.i && parser.GetCS().toString() !== 'limits') {
         parser.i = i;
       }
     }
@@ -520,15 +521,15 @@ export const AmsMethods: { [key: string]: ParseMethod } = {
     if (next === '\\') {
       // @test MultiInt with Command
       const i = parser.i;
-      next = parser.GetArgument(name);
+      const arg = parser.GetArgument(name);
       parser.i = i;
-      if (next === '\\limits') {
+      if (arg.toString() === '\\limits') {
         // @test MultiInt with Limits
         integral = '\\!\\!\\mathop{\\,\\,' + integral + '}';
       }
     }
     // @test MultiInt, MultiInt in Context
-    parser.string = integral + ' ' + parser.string.slice(parser.i);
+    parser.string = SourceString.fromSourceRange(integral + ' ', parser.string, parser.currentMacroStart(), parser.i).concat(parser.string.slice(parser.i));
     parser.i = 0;
   },
 
@@ -644,7 +645,7 @@ export const AmsMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The macro name.
    */
   CFrac(parser: TexParser, name: string) {
-    let lr = UnitUtil.trimSpaces(parser.GetBrackets(name, ''));
+    let lr = parser.GetBrackets(name, new SourceString('')).trim().toString();
     const num = parser.GetArgument(name);
     const den = parser.GetArgument(name);
     const lrMap: { [key: string]: string } = {
@@ -653,12 +654,16 @@ export const AmsMethods: { [key: string]: ParseMethod } = {
       '': '',
     };
     const numNode = new TexParser(
-      '\\strut\\textstyle{' + num + '}',
+      SourceString.fromSourceRange('\\strut\\textstyle{', num, 0, num.length)
+        .concat(num)
+        .concat(SourceString.fromSourceRange('}', num, 0, num.length)),
       parser.stack.env,
       parser.configuration
     ).mml();
     const denNode = new TexParser(
-      '\\strut\\textstyle{' + den + '}',
+      SourceString.fromSourceRange('\\strut\\textstyle{', den, 0, den.length)
+        .concat(den)
+        .concat(SourceString.fromSourceRange('}', den, 0, den.length)),
       parser.stack.env,
       parser.configuration
     ).mml();
@@ -708,11 +713,11 @@ export const AmsMethods: { [key: string]: ParseMethod } = {
     }
     if (thick == null) {
       // @test Genfrac
-      thick = parser.GetArgument(name);
+      thick = parser.GetArgument(name).toString();
     }
     if (style == null) {
       // @test Genfrac
-      style = UnitUtil.trimSpaces(parser.GetArgument(name));
+      style = parser.GetArgument(name).trim().toString();
     }
     const num = parser.ParseArg(name);
     const den = parser.ParseArg(name);
@@ -776,7 +781,7 @@ export const AmsMethods: { [key: string]: ParseMethod } = {
       throw new TexError('MultipleCommand', 'Multiple %1', parser.currentCS);
     }
     const star = parser.GetStar();
-    const tagId = UnitUtil.trimSpaces(parser.GetArgument(name));
+    const tagId = parser.GetArgument(name).trim().toString();
     parser.tags.tag(tagId, star);
     parser.Push(parser.itemFactory.create('null'));
   },

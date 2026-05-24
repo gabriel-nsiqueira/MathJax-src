@@ -29,6 +29,7 @@ import ParseOptions from '../ParseOptions.js';
 import { TagsFactory } from '../Tags.js';
 import { StartItem, StopItem, MmlItem, StyleItem } from '../base/BaseItems.js';
 import { TextParser } from './TextParser.js';
+import { SourceString } from '../SourceString.js';
 import { TextMacrosMethods } from './TextMacrosMethods.js';
 import { MmlNode } from '../../../core/MmlTree/MmlNode.js';
 
@@ -101,7 +102,7 @@ function internalMath(
   config.parseOptions.clear();
   return [
     new TextParser(
-      text,
+      new SourceString(text),
       mathvariant ? { mathvariant } : {},
       config.parseOptions,
       level

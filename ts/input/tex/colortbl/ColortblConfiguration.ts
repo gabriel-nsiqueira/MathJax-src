@@ -33,6 +33,7 @@ import TexParser from '../TexParser.js';
 import TexError from '../TexError.js';
 
 import { TeX } from '../../tex.js';
+import { SourceString } from '../SourceString.js';
 
 /**
  * Information about table colors.
@@ -123,8 +124,8 @@ export class ColorArrayItem extends ArrayItem {
  */
 function TableColor(parser: TexParser, name: string, type: keyof ColorData) {
   const lookup = parser.configuration.packageData.get('color').model; // use the color extension's color model
-  const model = parser.GetBrackets(name, '');
-  const color = lookup.getColor(model, parser.GetArgument(name));
+  const model = parser.GetBrackets(name, new SourceString(''));
+  const color = lookup.getColor(model.toString(), parser.GetArgument(name).toString());
   //
   // Check that we are in a colorable array.
   //
@@ -151,8 +152,8 @@ function TableColor(parser: TexParser, name: string, type: keyof ColorData) {
     //
     // Ignore the left and right overlap options.
     //
-    if (parser.GetBrackets(name, '')) {
-      parser.GetBrackets(name, '');
+    if (parser.GetBrackets(name, new SourceString('')).length) {
+      parser.GetBrackets(name, new SourceString(''));
     }
   } else {
     top.color[type] = color;

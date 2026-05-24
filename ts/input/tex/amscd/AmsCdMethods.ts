@@ -29,6 +29,7 @@ import { Other } from '../base/BaseConfiguration.js';
 import { MmlMunderover } from '../../../core/MmlTree/MmlNodes/munderover.js';
 import { TEXCLASS } from '../../../core/MmlTree/MmlNode.js';
 import NodeUtil from '../NodeUtil.js';
+import { SourceString } from '../SourceString.js';
 
 // Namespace
 const AmsCdMethods: { [key: string]: ParseMethod } = {
@@ -123,8 +124,8 @@ const AmsCdMethods: { [key: string]: ParseMethod } = {
         //  Lay out horizontal arrows with munderover if it has labels
         //
         mml = parser.create('token', 'mo', hdef, arrow);
-        if (!a) {
-          a = '\\kern ' + top.getProperty('minw');
+        if (!a.length) {
+          a = new SourceString('\\kern ' + top.getProperty('minw'));
         } // minsize needs work
         const pad: EnvList = { width: '+.67em', lspace: '.33em' };
         mml = parser.create('node', 'munderover', [mml]) as MmlMunderover;
@@ -160,12 +161,14 @@ const AmsCdMethods: { [key: string]: ParseMethod } = {
         //
         const arrowNode = parser.create('token', 'mo', vdef, arrow);
         mml = arrowNode;
-        if (a || b) {
+        if (a.length || b.length) {
           mml = parser.create('node', 'mrow');
-          if (a) {
+          if (a.length) {
             NodeUtil.appendChildren(mml, [
               new TexParser(
-                '\\scriptstyle\\raise.125em{\\vcenter{\\llap{' + a + '}}}',
+                SourceString.fromSourceRange('\\scriptstyle\\raise.125em{\\vcenter{\\llap{', a, 0, a.length)
+                  .concat(a)
+                  .concat(SourceString.fromSourceRange('}}}', a, 0, a.length)),
                 parser.stack.env,
                 parser.configuration
               ).mml(),
@@ -173,10 +176,12 @@ const AmsCdMethods: { [key: string]: ParseMethod } = {
           }
           arrowNode.texClass = TEXCLASS.ORD;
           NodeUtil.appendChildren(mml, [arrowNode]);
-          if (b) {
+          if (b.length) {
             NodeUtil.appendChildren(mml, [
               new TexParser(
-                '\\scriptstyle\\raise.125em{\\vcenter{\\rlap{' + b + '}}}',
+                SourceString.fromSourceRange('\\scriptstyle\\raise.125em{\\vcenter{\\rlap{', b, 0, b.length)
+                  .concat(b)
+                  .concat(SourceString.fromSourceRange('}}}', b, 0, b.length)),
                 parser.stack.env,
                 parser.configuration
               ).mml(),

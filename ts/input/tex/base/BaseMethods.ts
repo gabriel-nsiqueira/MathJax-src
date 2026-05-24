@@ -43,6 +43,7 @@ import { entities } from '../../../util/Entities.js';
 import { lookup } from '../../../util/Options.js';
 import { ColumnState } from '../ColumnParser.js';
 import { replaceUnicode } from '../../../util/string.js';
+import { SourceString } from '../SourceString.js';
 
 const P_HEIGHT = 1.2 / 0.85; // cmex10 height plus depth over .85
 const MmlTokenAllow: { [key: string]: number } = {
@@ -95,7 +96,7 @@ export function splitAlignArray(align: string, n: number = Infinity): string {
  * @param {string} n The index of the root.
  * @returns {MmlNode} The node with the parsed root.
  */
-function parseRoot(parser: TexParser, n: string): MmlNode {
+function parseRoot(parser: TexParser, n: SourceString): MmlNode {
   // @test General Root, Explicit Root
   const env = parser.stack.env;
   const inRoot = env['inRoot'];
@@ -190,10 +191,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
   Superscript(parser: TexParser, _c: string) {
     if (parser.GetNext().match(/\d/)) {
       // don't treat numbers as a unit
-      parser.string =
-        parser.string.substring(0, parser.i + 1) +
-        ' ' +
-        parser.string.substring(parser.i + 1);
+      parser.string.insert(parser.i + 1, new SourceString(' '));
     }
     let primes: MmlNode;
     let base: MmlNode | void;
@@ -267,10 +265,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
   Subscript(parser: TexParser, _c: string) {
     if (parser.GetNext().match(/\d/)) {
       // don't treat numbers as a unit
-      parser.string =
-        parser.string.substring(0, parser.i + 1) +
-        ' ' +
-        parser.string.substring(parser.i + 1);
+      parser.string.insert(parser.i + 1, new SourceString(' '));
     }
     let primes, base;
     const top = parser.stack.Top();
@@ -721,12 +716,17 @@ const BaseMethods: { [key: string]: ParseMethod } = {
   Sqrt(parser: TexParser, name: string) {
     const n = parser.GetBrackets(name);
     let arg = parser.GetArgument(name);
-    if (arg === '\\frac') {
-      arg +=
-        '{' + parser.GetArgument(arg) + '}{' + parser.GetArgument(arg) + '}';
+    if (arg.toString() === '\\frac') {
+      const fArg1 = parser.GetArgument(arg.toString());
+      const fArg2 = parser.GetArgument(arg.toString());
+      arg = arg.concat(new SourceString('{'))
+        .concat(fArg1)
+        .concat(new SourceString('}{'))
+        .concat(fArg2)
+        .concat(new SourceString('}'));
     }
     let mml = new TexParser(arg, parser.stack.env, parser.configuration).mml();
-    if (!n) {
+    if (!n || !n.length) {
       // @test Square Root
       mml = parser.create('node', 'msqrt', [mml]);
     } else {
@@ -774,8 +774,8 @@ const BaseMethods: { [key: string]: ParseMethod } = {
         parser.currentCS
       );
     }
-    let n = parser.GetArgument(name);
-    if (!n.match(/-?[0-9]+/)) {
+    const nArg = parser.GetArgument(name);
+    if (!nArg.match(/-?[0-9]+/)) {
       // @test Incorrect Move Root
       throw new TexError(
         'IntegerArg',
@@ -783,7 +783,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
         parser.currentCS
       );
     }
-    n = parseInt(n, 10) / 15 + 'em';
+    let n = parseInt(nArg.toString(), 10) / 15 + 'em';
     if (n.substring(0, 1) !== '-') {
       n = '+' + n;
     }
@@ -995,10 +995,10 @@ const BaseMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The macro name.
    */
   ParBox(parser: TexParser, name: string) {
-    const c = parser.GetBrackets(name, 'c');
+    const c = parser.GetBrackets(name, new SourceString('c'));
     const width = parser.GetDimen(name);
-    const text = ParseUtil.internalMath(parser, parser.GetArgument(name));
-    const align = splitAlignArray(c, 1);
+    const text = ParseUtil.internalMath(parser, parser.GetArgument(name).toString());
+    const align = splitAlignArray(c.toString(), 1);
     const mml = parser.create('node', 'mpadded', text, {
       width: width,
       'data-overflow': 'linebreak',
@@ -1023,7 +1023,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
         parser.currentCS
       );
     }
-    const type = parser.GetArgument(name).trim();
+    const type = parser.GetArgument(name).trim().toString();
     switch (type) {
       case 'c':
         if (top.First) {
@@ -1033,7 +1033,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
             parser.currentCS + '{c}'
           );
         }
-        top.breakAlign.cell = splitAlignArray(parser.GetArgument(name), 1);
+        top.breakAlign.cell = splitAlignArray(parser.GetArgument(name).toString(), 1);
         break;
       case 'r':
         if (top.row.length || top.First) {
@@ -1043,7 +1043,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
             parser.currentCS + '{r}'
           );
         }
-        top.breakAlign.row = splitAlignArray(parser.GetArgument(name));
+        top.breakAlign.row = splitAlignArray(parser.GetArgument(name).toString());
         break;
       case 't':
         if (top.table.length || top.row.length || top.First) {
@@ -1053,7 +1053,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
             parser.currentCS + '{t}'
           );
         }
-        top.breakAlign.table = splitAlignArray(parser.GetArgument(name));
+        top.breakAlign.table = splitAlignArray(parser.GetArgument(name).toString());
         break;
       default:
         throw new TexError(
@@ -1072,8 +1072,8 @@ const BaseMethods: { [key: string]: ParseMethod } = {
    */
   MmlToken(parser: TexParser, name: string) {
     // @test Modulo
-    const kind = parser.GetArgument(name);
-    let attr = parser.GetBrackets(name, '').replace(/^\s+/, '');
+    const kind = parser.GetArgument(name).toString();
+    let attr = parser.GetBrackets(name, new SourceString('')).toString().replace(/^\s+/, '');
     const text = parser.GetArgument(name);
     const def: EnvList = {};
     const keep: string[] = [];
@@ -1127,7 +1127,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
     if (keep.length) {
       node.setProperty('keep-attrs', keep.join(' '));
     }
-    const textNode = parser.create('text', replaceUnicode(text));
+    const textNode = parser.create('text', replaceUnicode(text.toString()));
     node.appendChild(textNode);
     NodeUtil.setProperties(node, def);
     parser.Push(node);
@@ -1186,7 +1186,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
    */
   Smash(parser: TexParser, name: string) {
     // @test Smash, Smash Top, Smash Bottom
-    const bt = UnitUtil.trimSpaces(parser.GetBrackets(name, ''));
+    const bt = UnitUtil.trimSpaces(parser.GetBrackets(name, new SourceString('')).toString());
     const smash = parser.create('node', 'mpadded', [parser.ParseArg(name)]);
     // TEMP: Changes here:
     switch (bt) {
@@ -1334,7 +1334,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
    */
   rule(parser: TexParser, name: string) {
     // @test Rule 2D
-    const v = parser.GetBrackets(name),
+    const v = parser.GetBrackets(name)?.toString(),
       w = parser.GetDimen(name),
       h = parser.GetDimen(name);
     let mml = parser.create('node', 'mspace', [], {
@@ -1415,7 +1415,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
   HBox(parser: TexParser, name: string, style: string, font?: string) {
     // @test Hbox
     parser.PushAll(
-      ParseUtil.internalMath(parser, parser.GetArgument(name), style, font)
+      ParseUtil.internalMath(parser, parser.GetArgument(name).toString(), style, font)
     );
   },
 
@@ -1427,7 +1427,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
    */
   FBox(parser: TexParser, name: string) {
     // @test Fbox
-    const internal = ParseUtil.internalMath(parser, parser.GetArgument(name));
+    const internal = ParseUtil.internalMath(parser, parser.GetArgument(name).toString());
     const node = parser.create('node', 'menclose', internal, {
       notation: 'box',
     });
@@ -1441,9 +1441,9 @@ const BaseMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The macro name.
    */
   FrameBox(parser: TexParser, name: string) {
-    const width = parser.GetBrackets(name);
-    const pos = parser.GetBrackets(name) || 'c';
-    let mml = ParseUtil.internalMath(parser, parser.GetArgument(name));
+    const width = parser.GetBrackets(name)?.toString();
+    const pos = parser.GetBrackets(name)?.toString() || 'c';
+    let mml = ParseUtil.internalMath(parser, parser.GetArgument(name).toString());
     if (width) {
       mml = [
         parser.create('node', 'mpadded', mml, {
@@ -1468,12 +1468,12 @@ const BaseMethods: { [key: string]: ParseMethod } = {
    * @param {string} name        The macro name.
    */
   MakeBox(parser: TexParser, name: string) {
-    const width = parser.GetBrackets(name);
-    const pos = parser.GetBrackets(name, 'c');
+    const width = parser.GetBrackets(name)?.toString();
+    const pos = parser.GetBrackets(name, new SourceString('c')).toString();
     const mml = parser.create(
       'node',
       'mpadded',
-      ParseUtil.internalMath(parser, parser.GetArgument(name))
+      ParseUtil.internalMath(parser, parser.GetArgument(name).toString())
     );
     if (width) {
       NodeUtil.setAttribute(mml, 'width', width);
@@ -1570,7 +1570,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
       parser.i++;
     } else {
       // @test Matrix Arg
-      parser.string = c + '}' + parser.string.slice(parser.i + 1);
+      parser.string = SourceString.fromSourceRange(c + '}', parser.string, parser.i, parser.i + 1).concat(parser.string.slice(parser.i + 1));
       parser.i = 0;
     }
     // @test Matrix Braces, Matrix Columns, Matrix Rows.
@@ -1751,7 +1751,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
         parser.i++;
       }
       if (parser.string.charAt(parser.i) === '[') {
-        const dim = parser.GetBrackets(name, '');
+        const dim = parser.GetBrackets(name, new SourceString('')).toString();
         const [value, unit] = UnitUtil.matchDimen(dim);
         // @test Custom Linebreak
         if (dim && !value) {
@@ -1850,9 +1850,9 @@ const BaseMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The macro name.
    */
   NewColumnType(parser: TexParser, name: string) {
-    const c = parser.GetArgument(name);
-    const n = parser.GetBrackets(name, '0');
-    const macro = parser.GetArgument(name);
+    const c = parser.GetArgument(name).toString();
+    const n = parser.GetBrackets(name, new SourceString('0')).toString();
+    const macro = parser.GetArgument(name).toString();
     if (c.length !== 1) {
       throw new TexError(
         'BadColumnName',
@@ -1885,7 +1885,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
    */
   BeginEnd(parser: TexParser, name: string) {
     // @test Array1, Array2, Array Test
-    const env = parser.GetArgument(name);
+    const env = parser.GetArgument(name).toString();
     if (env.match(/\\/)) {
       // @test InvalidEnv
       throw new TexError('InvalidEnv', "Invalid environment name '%1'", env);
@@ -1936,7 +1936,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
   ): ParseResult {
     if (!align) {
       // @test Array Single
-      align = parser.GetArgument('\\begin{' + begin.getName() + '}');
+      align = parser.GetArgument('\\begin{' + begin.getName() + '}').toString();
     }
     const array = parser.itemFactory.create('array') as sitem.ArrayItem;
     if (begin.getName() === 'array') {
@@ -1992,7 +1992,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
     style: string = ''
   ): ParseResult {
     // @test Array1, Array2, Array Test
-    const align = parser.GetBrackets('\\begin{' + begin.getName() + '}');
+    const align = parser.GetBrackets('\\begin{' + begin.getName() + '}')?.toString();
     const item = BaseMethods.Array(
       parser,
       begin,
@@ -2017,9 +2017,9 @@ const BaseMethods: { [key: string]: ParseMethod } = {
     //
     // Get the indentshift values, if any
     //
-    const first = parser.GetBrackets(name, '');
-    const shift = parser.GetBrackets(name, '');
-    const last = parser.GetBrackets(name, '');
+    const first = parser.GetBrackets(name, new SourceString('')).toString();
+    const shift = parser.GetBrackets(name, new SourceString('')).toString();
+    const last = parser.GetBrackets(name, new SourceString('')).toString();
     if (
       (first && !UnitUtil.matchDimen(first)[0]) ||
       (shift && !UnitUtil.matchDimen(shift)[0]) ||
@@ -2034,7 +2034,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
     //
     // Get the indentalign values, if any
     //
-    const lcr = parser.GetArgument(name);
+    const lcr = parser.GetArgument(name).toString();
     if (lcr && !lcr.match(/^([lcr]{1,3})?$/)) {
       throw new TexError(
         'BadAlignment',
@@ -2172,7 +2172,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
    */
   HandleLabel(parser: TexParser, name: string) {
     // @test Label, Label Empty
-    const label = parser.GetArgument(name);
+    const label = parser.GetArgument(name).toString();
     if (label === '') {
       // @test Label Empty
       return;
@@ -2209,7 +2209,7 @@ const BaseMethods: { [key: string]: ParseMethod } = {
    */
   HandleRef(parser: TexParser, name: string, eqref: boolean) {
     // @test Ref, Ref Unknown, Eqref, Ref Default, Ref Named
-    const label = parser.GetArgument(name);
+    const label = parser.GetArgument(name).toString();
     let ref = parser.tags.allLabels[label] || parser.tags.labels[label];
     if (!ref) {
       // @test Ref Unknown
@@ -2247,24 +2247,31 @@ const BaseMethods: { [key: string]: ParseMethod } = {
   Macro(
     parser: TexParser,
     name: string,
-    macro: string,
+    macro: string | SourceString,
     argcount: number,
-    def?: string
+    def?: string | SourceString
   ) {
+    let macroStr = macro instanceof SourceString
+      ? macro
+      : SourceString.fromSourceRange(macro, parser.string, parser.currentMacroStart(), parser.i);
     if (argcount) {
-      const args: string[] = [];
+      const args: SourceString[] = [];
       if (def != null) {
         const optional = parser.GetBrackets(name);
-        args.push(optional == null ? def : optional);
+        args.push(optional == null
+          ? def instanceof SourceString
+            ? def
+            : SourceString.fromSourceRange(def, parser.string, parser.currentMacroStart(), parser.i)
+          : optional);
       }
       for (let i = args.length; i < argcount; i++) {
         args.push(parser.GetArgument(name));
       }
-      macro = ParseUtil.substituteArgs(parser, args, macro);
+      macroStr = ParseUtil.substituteArgs(parser, args, macroStr);
     }
     parser.string = ParseUtil.addArgs(
       parser,
-      macro,
+      macroStr,
       parser.string.slice(parser.i)
     );
     parser.i = 0;

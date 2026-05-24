@@ -27,8 +27,9 @@ import { UnitUtil } from '../UnitUtil.js';
 import TexError from '../TexError.js';
 import TexParser from '../TexParser.js';
 import { Macro, Token } from '../Token.js';
-import { Args, Attributes, ParseMethod } from '../Types.js';
+import { Attributes, MacroArgs, ParseMethod } from '../Types.js';
 import * as tm from '../TokenMap.js';
+import { SourceString } from '../SourceString.js';
 
 /**
  * Naming constants for the extension mappings.
@@ -63,7 +64,7 @@ export const NewcommandUtil = {
         cmd
       );
     }
-    const cs = UnitUtil.trimSpaces(parser.GetArgument(cmd)).substring(1);
+    const cs = UnitUtil.trimSpaces(parser.GetArgument(cmd).toString()).substring(1);
     this.checkProtectedMacros(parser, cs);
     return cs;
   },
@@ -76,7 +77,7 @@ export const NewcommandUtil = {
    * @returns {string} The control sequence.
    */
   GetCsNameArgument(parser: TexParser, name: string): string {
-    let cs = UnitUtil.trimSpaces(parser.GetArgument(name));
+    let cs = UnitUtil.trimSpaces(parser.GetArgument(name).toString());
     if (cs.charAt(0) === '\\') {
       // @test Newcommand Simple
       cs = cs.substring(1);
@@ -101,12 +102,12 @@ export const NewcommandUtil = {
    * @returns {string} The number of arguments (or blank).
    */
   GetArgCount(parser: TexParser, name: string): string {
-    let n = parser.GetBrackets(name);
+    const n = parser.GetBrackets(name);
     if (n) {
       // @test Newcommand Optional, Newcommand Arg, Newcommand Arg Optional
       // @test Newenvironment Optional, Newenvironment Arg Optional
-      n = UnitUtil.trimSpaces(n);
-      if (!n.match(/^[0-9]+$/)) {
+      const nStr = UnitUtil.trimSpaces(n.toString());
+      if (!nStr.match(/^[0-9]+$/)) {
         // @test Illegal Argument Number
         throw new TexError(
           'IllegalParamNumber',
@@ -114,8 +115,9 @@ export const NewcommandUtil = {
           name
         );
       }
+      return nStr;
     }
-    return n;
+    return n as any;
   },
 
   /**
@@ -197,9 +199,9 @@ export const NewcommandUtil = {
    * @param {TexParser} parser The calling parser.
    * @param {string} name The name of the calling command.
    * @param {string} param The parameter for the macro.
-   * @returns {string} The parameter.
+   * @returns {SourceString} The parameter.
    */
-  GetParameter(parser: TexParser, name: string, param: string): string {
+  GetParameter(parser: TexParser, name: string, param: string): SourceString {
     if (param == null) {
       // @test Def Let, Def Optional Brace, Def Options CS
       return parser.GetArgument(name);
@@ -222,7 +224,7 @@ export const NewcommandUtil = {
           i++;
           j -= 2;
         }
-        return parser.string.substring(i, i + j);
+        return parser.string.slice(i, i + j);
       } else if (c === '\\') {
         // @test Def Options CS
         parser.i++;
@@ -343,7 +345,7 @@ export const NewcommandUtil = {
    * @param {TexParser} parser The current parser.
    * @param {string} cs The control sequence of the macro.
    * @param {ParseMethod} func The parse method for this macro.
-   * @param {Args[]} attr The attributes needed for parsing.
+   * @param {MacroArgs[]} attr The attributes needed for parsing.
    * @param {string=} token Optionally original token for macro, in case it is
    *     different from the control sequence.
    */
@@ -351,7 +353,7 @@ export const NewcommandUtil = {
     parser: TexParser,
     cs: string,
     func: ParseMethod,
-    attr: Args[],
+    attr: MacroArgs[],
     token: string = ''
   ) {
     this.checkProtectedMacros(parser, cs);
@@ -371,13 +373,13 @@ export const NewcommandUtil = {
    * @param {TexParser} parser The current parser.
    * @param {string} env The environment name.
    * @param {ParseMethod} func The parse method for this macro.
-   * @param {Args[]} attr The attributes needed for parsing.
+   * @param {MacroArgs[]} attr The attributes needed for parsing.
    */
   addEnvironment(
     parser: TexParser,
     env: string,
     func: ParseMethod,
-    attr: Args[]
+    attr: MacroArgs[]
   ) {
     const envs = NewcommandUtil.checkGlobal<Macro>(
       parser,

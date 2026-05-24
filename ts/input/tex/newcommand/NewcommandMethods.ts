@@ -32,6 +32,8 @@ import { ParseUtil } from '../ParseUtil.js';
 import { UnitUtil } from '../UnitUtil.js';
 import { StackItem } from '../StackItem.js';
 import { NewcommandUtil } from './NewcommandUtil.js';
+import { SourceString } from '../SourceString.js';
+import { MacroArgs } from '../Types.js';
 
 // Namespace
 const NewcommandMethods: { [key: string]: ParseMethod } = {
@@ -59,7 +61,7 @@ const NewcommandMethods: { [key: string]: ParseMethod } = {
    */
   NewEnvironment(parser: TexParser, name: string) {
     // @test Newenvironment Empty, Newenvironment Content
-    const env = UnitUtil.trimSpaces(parser.GetArgument(name));
+    const env = UnitUtil.trimSpaces(parser.GetArgument(name).toString());
     const n = NewcommandUtil.GetArgCount(parser, name);
     const opt = parser.GetBrackets(name);
     const bdef = parser.GetArgument(name);
@@ -96,7 +98,7 @@ const NewcommandMethods: { [key: string]: ParseMethod } = {
           parser,
           cs,
           NewcommandMethods.MacroWithTemplate,
-          [def].concat(params)
+          ([def] as MacroArgs[]).concat(params)
         );
     parser.Push(parser.itemFactory.create('null'));
   },
@@ -203,15 +205,18 @@ const NewcommandMethods: { [key: string]: ParseMethod } = {
   MacroWithTemplate(
     parser: TexParser,
     name: string,
-    text: string,
+    text: string | SourceString,
     n: string,
     ...params: string[]
   ) {
     const argCount = parseInt(n, 10);
+    let textStr = text instanceof SourceString
+      ? text
+      : SourceString.fromSourceRange(text, parser.string, parser.currentMacroStart(), parser.i);
     // @test Def Let
     if (params.length) {
       // @test Def Let
-      const args = [];
+      const args: SourceString[] = [];
       parser.GetNext();
       if (params[0] && !NewcommandUtil.MatchParam(parser, params[0])) {
         // @test Missing Arguments
@@ -226,12 +231,12 @@ const NewcommandMethods: { [key: string]: ParseMethod } = {
           // @test Def Let
           args.push(NewcommandUtil.GetParameter(parser, name, params[i + 1]));
         }
-        text = ParseUtil.substituteArgs(parser, args, text);
+        textStr = ParseUtil.substituteArgs(parser, args, textStr);
       }
     }
     parser.string = ParseUtil.addArgs(
       parser,
-      text,
+      textStr,
       parser.string.slice(parser.i)
     );
     parser.i = 0;
@@ -252,14 +257,20 @@ const NewcommandMethods: { [key: string]: ParseMethod } = {
   BeginEnv(
     parser: TexParser,
     begin: StackItem,
-    bdef: string,
-    edef: string,
+    bdef: string | SourceString,
+    edef: string | SourceString,
     n: number,
-    def: string
+    def: string | SourceString
   ): ParseResult {
     // @test Newenvironment Empty, Newenvironment Content
     // We have an end item, and we are supposed to close this environment.
     const name = begin.getName();
+    let bdefStr = bdef instanceof SourceString
+      ? bdef
+      : SourceString.fromSourceRange(bdef, parser.string, parser.currentMacroStart(), parser.i);
+    let edefStr = edef instanceof SourceString
+      ? edef
+      : SourceString.fromSourceRange(edef, parser.string, parser.currentMacroStart(), parser.i);
     if (parser.stack.env['closing'] === name) {
       // @test Newenvironment Empty, Newenvironment Content
       delete parser.stack.env['closing'];
@@ -267,42 +278,41 @@ const NewcommandMethods: { [key: string]: ParseMethod } = {
       if (beginN) {
         (parser.stack.global['beginEnv'] as number)--;
         if (edef) {
-          // Parse the commands in the end environment definition.
           const rest = parser.string.slice(parser.i);
           parser.string = ParseUtil.addArgs(
             parser,
-            parser.string.substring(0, parser.i),
-            edef
+            parser.string.slice(0, parser.i),
+            edefStr
           );
           parser.Parse();
-          // Reset to parsing the remainder of the expression.
           parser.string = rest;
           parser.i = 0;
         }
       }
-      // Close this environment.
       return parser.itemFactory.create('end').setProperty('name', name);
     }
     if (n) {
       // @test Newenvironment Optional, Newenvironment Arg Optional
-      const args: string[] = [];
-      // Note, here we test against undefined and null, so need `!=`.
+      const args: SourceString[] = [];
       if (def != null) {
         // @test Newenvironment Optional, Newenvironment Arg Optional
         const optional = parser.GetBrackets(`\\begin{${name}}`);
-        // Note, here we test against undefined and null, so need `==`.
-        args.push(optional == null ? def : optional);
+        args.push(optional == null
+          ? def instanceof SourceString
+            ? def
+            : SourceString.fromSourceRange(def, parser.string, parser.currentMacroStart(), parser.i)
+          : optional);
       }
       for (let i = args.length; i < n; i++) {
         // @test Newenvironment Arg Optional
         args.push(parser.GetArgument(`\\begin{${name}}`));
       }
-      bdef = ParseUtil.substituteArgs(parser, args, bdef);
-      edef = ParseUtil.substituteArgs(parser, [], edef); // no args, but get errors for #n in edef
+      bdefStr = ParseUtil.substituteArgs(parser, args, bdefStr);
+      edefStr = ParseUtil.substituteArgs(parser, [], edefStr);
     }
     parser.string = ParseUtil.addArgs(
       parser,
-      bdef,
+      bdefStr,
       parser.string.slice(parser.i)
     );
     parser.i = 0;

@@ -26,6 +26,7 @@ import { MmlNode } from '../../core/MmlTree/MmlNode.js';
 import { MathItem } from '../../core/MathItem.js';
 import { EnvList } from './StackItem.js';
 import ParseOptions from './ParseOptions.js';
+import { SourceString } from './SourceString.js';
 
 /**
  *  Simple class for label objects.
@@ -571,7 +572,7 @@ export class AbstractTags implements Tags {
       ? format
       : format.match(/^(\(|\[|\{)(.*)(\}|\]|\))$/)?.slice(1) || [format];
     const mml = new TexParser(
-      tag.map((part) => (part ? `\\text{${part}}` : '')).join(''),
+      new SourceString(tag.map((part) => (part ? `\\text{${part}}` : '')).join('')),
       {},
       this.configuration
     ).mml();

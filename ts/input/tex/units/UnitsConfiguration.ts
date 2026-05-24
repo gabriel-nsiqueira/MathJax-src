@@ -26,6 +26,7 @@ import { Configuration } from '../Configuration.js';
 import TexParser from '../TexParser.js';
 import { CommandMap } from '../TokenMap.js';
 import { ParseMethod } from '../Types.js';
+import { SourceString } from '../SourceString.js';
 
 // Namespace
 export const UnitsMethods: { [key: string]: ParseMethod } = {
@@ -42,7 +43,7 @@ export const UnitsMethods: { [key: string]: ParseMethod } = {
     if (val) {
       macro = val + (parser.options.units.loose ? '~' : '\\,') + macro;
     }
-    parser.string = macro + parser.string.slice(parser.i);
+    parser.string = SourceString.fromSourceRange(macro, parser.string, parser.currentMacroStart(), parser.i).concat(parser.string.slice(parser.i));
     parser.i = 0;
   },
 
@@ -60,7 +61,7 @@ export const UnitsMethods: { [key: string]: ParseMethod } = {
     if (val) {
       macro = val + (parser.options.units.loose ? '~' : '\\,') + macro;
     }
-    parser.string = macro + parser.string.slice(parser.i);
+    parser.string = SourceString.fromSourceRange(macro, parser.string, parser.currentMacroStart(), parser.i).concat(parser.string.slice(parser.i));
     parser.i = 0;
   },
 
@@ -71,16 +72,16 @@ export const UnitsMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The name of the calling macro.
    */
   NiceFrac(parser: TexParser, name: string) {
-    const font = parser.GetBrackets(name, '\\mathrm');
+    const font = parser.GetBrackets(name, new SourceString('\\mathrm'));
     const num = parser.GetArgument(name);
     const den = parser.GetArgument(name);
     const numMml = new TexParser(
-      `${font}{${num}}`,
+      new SourceString(`${font}{${num}}`),
       { ...parser.stack.env },
       parser.configuration
     ).mml();
     const denMml = new TexParser(
-      `${font}{${den}}`,
+      new SourceString(`${font}{${den}}`),
       { ...parser.stack.env },
       parser.configuration
     ).mml();

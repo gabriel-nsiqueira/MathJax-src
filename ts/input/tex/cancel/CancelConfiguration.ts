@@ -29,6 +29,7 @@ import { CommandMap } from '../TokenMap.js';
 import { ParseMethod } from '../Types.js';
 import { ParseUtil } from '../ParseUtil.js';
 import { ENCLOSE_OPTIONS } from '../enclose/EncloseConfiguration.js';
+import { SourceString } from '../SourceString.js';
 
 // Namespace
 export const CancelMethods: { [key: string]: ParseMethod } = {
@@ -40,9 +41,9 @@ export const CancelMethods: { [key: string]: ParseMethod } = {
    * @param {string} notation The type of cancel notation to use.
    */
   Cancel(parser: TexParser, name: string, notation: string) {
-    const attr = parser.GetBrackets(name, '');
+    const attr = parser.GetBrackets(name, new SourceString(''));
     const math = parser.ParseArg(name);
-    const def = ParseUtil.keyvalOptions(attr, ENCLOSE_OPTIONS);
+    const def = ParseUtil.keyvalOptions(attr.toString(), ENCLOSE_OPTIONS);
     def['notation'] = notation;
     parser.Push(parser.create('node', 'menclose', [math], def));
   },
@@ -55,10 +56,10 @@ export const CancelMethods: { [key: string]: ParseMethod } = {
    */
 
   CancelTo(parser: TexParser, name: string) {
-    const attr = parser.GetBrackets(name, '');
+    const attr = parser.GetBrackets(name, new SourceString(''));
     let value = parser.ParseArg(name);
     const math = parser.ParseArg(name);
-    const def = ParseUtil.keyvalOptions(attr, ENCLOSE_OPTIONS);
+    const def = ParseUtil.keyvalOptions(attr.toString(), ENCLOSE_OPTIONS);
     def['notation'] = [
       TexConstant.Notation.UPDIAGONALSTRIKE,
       TexConstant.Notation.UPDIAGONALARROW,

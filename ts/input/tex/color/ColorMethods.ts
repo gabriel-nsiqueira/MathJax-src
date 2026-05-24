@@ -26,6 +26,7 @@ import { ParseMethod } from '../Types.js';
 import { PropertyList } from '../../../core/Tree/Node.js';
 import { ParseUtil } from '../ParseUtil.js';
 import TexParser from '../TexParser.js';
+import { SourceString } from '../SourceString.js';
 
 import { ColorModel } from './ColorUtil.js';
 
@@ -55,11 +56,11 @@ export const ColorMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The name of the control sequence.
    */
   Color(parser: TexParser, name: string) {
-    const model = parser.GetBrackets(name, '');
+    const model = parser.GetBrackets(name, new SourceString(''));
     const colorDef = parser.GetArgument(name);
     const colorModel: ColorModel =
       parser.configuration.packageData.get('color').model;
-    const color = colorModel.getColor(model, colorDef);
+    const color = colorModel.getColor(model.toString(), colorDef.toString());
 
     const style = parser.itemFactory
       .create('style')
@@ -76,11 +77,11 @@ export const ColorMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The name of the control sequence.
    */
   TextColor(parser: TexParser, name: string) {
-    const model = parser.GetBrackets(name, '');
+    const model = parser.GetBrackets(name, new SourceString(''));
     const colorDef = parser.GetArgument(name);
     const colorModel: ColorModel =
       parser.configuration.packageData.get('color').model;
-    const color = colorModel.getColor(model, colorDef);
+    const color = colorModel.getColor(model.toString(), colorDef.toString());
     const old = parser.stack.env['color'];
 
     parser.stack.env['color'] = color;
@@ -109,7 +110,7 @@ export const ColorMethods: { [key: string]: ParseMethod } = {
 
     const colorModel: ColorModel =
       parser.configuration.packageData.get('color').model;
-    colorModel.defineColor(model, cname, def);
+    colorModel.defineColor(model.toString(), cname.toString(), def.toString());
     parser.Push(parser.itemFactory.create('null'));
   },
 
@@ -120,12 +121,12 @@ export const ColorMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The name of the control sequence.
    */
   ColorBox(parser: TexParser, name: string) {
-    const model = parser.GetBrackets(name, '');
+    const model = parser.GetBrackets(name, new SourceString(''));
     const cdef = parser.GetArgument(name);
-    const math = ParseUtil.internalMath(parser, parser.GetArgument(name));
+    const math = ParseUtil.internalMath(parser, parser.GetArgument(name).toString());
     const colorModel = parser.configuration.packageData.get('color').model;
     const node = parser.create('node', 'mpadded', math, {
-      mathbackground: colorModel.getColor(model, cdef),
+      mathbackground: colorModel.getColor(model.toString(), cdef.toString()),
     });
     NodeUtil.setProperties(node, padding(parser.options.color.padding));
     parser.Push(node);
@@ -138,17 +139,17 @@ export const ColorMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The name of the control sequence.
    */
   FColorBox(parser: TexParser, name: string) {
-    const fmodel = parser.GetBrackets(name, '');
+    const fmodel = parser.GetBrackets(name, new SourceString(''));
     const fname = parser.GetArgument(name);
     const cmodel = parser.GetBrackets(name, fmodel);
     const cname = parser.GetArgument(name);
-    const math = ParseUtil.internalMath(parser, parser.GetArgument(name));
+    const math = ParseUtil.internalMath(parser, parser.GetArgument(name).toString());
     const options = parser.options.color;
     const colorModel = parser.configuration.packageData.get('color').model;
 
     const node = parser.create('node', 'mpadded', math, {
-      mathbackground: colorModel.getColor(cmodel, cname),
-      style: `border: ${options.borderWidth} solid ${colorModel.getColor(fmodel, fname)}`,
+      mathbackground: colorModel.getColor(cmodel.toString(), cname.toString()),
+      style: `border: ${options.borderWidth} solid ${colorModel.getColor(fmodel.toString(), fname.toString())}`,
     });
 
     NodeUtil.setProperties(node, padding(options.padding));

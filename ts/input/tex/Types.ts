@@ -24,8 +24,10 @@
 import { StackItem } from './StackItem.js';
 import { Token } from './Token.js';
 import TexParser from './TexParser.js';
+import { SourceString } from './SourceString.js';
 
 export type Args = boolean | number | string | null;
+export type MacroArgs = Args | SourceString;
 
 export type Attributes = Record<string, Args>;
 

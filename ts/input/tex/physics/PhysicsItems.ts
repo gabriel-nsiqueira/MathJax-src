@@ -26,6 +26,7 @@ import { ParseUtil } from '../ParseUtil.js';
 import NodeUtil from '../NodeUtil.js';
 import TexParser from '../TexParser.js';
 import { AbstractMmlTokenNode } from '../../../core/MmlTree/MmlNode.js';
+import { SourceString } from '../SourceString.js';
 
 export class AutoOpen extends BaseItem {
   /**
@@ -80,7 +81,7 @@ export class AutoOpen extends BaseItem {
     }
     if (right) {
       this.Push(
-        new TexParser(right, parser.stack.env, parser.configuration).mml()
+        new TexParser(new SourceString(right), parser.stack.env, parser.configuration).mml()
       );
     }
     const mml = ParseUtil.fenced(

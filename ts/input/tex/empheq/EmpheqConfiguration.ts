@@ -30,6 +30,7 @@ import TexError from '../TexError.js';
 import { BeginItem } from '../base/BaseItems.js';
 import { EmpheqUtil } from './EmpheqUtil.js';
 import ParseMethods from '../ParseMethods.js';
+import { SourceString } from '../SourceString.js';
 
 /**
  * The methods that implement the empheq package.
@@ -57,10 +58,9 @@ export const EmpheqMethods = {
       );
     } else {
       ParseUtil.checkEqnEnv(parser);
-      const opts = parser.GetBrackets('\\begin{' + begin.getName() + '}') || '';
-      const [env, n] = parser
-        .GetArgument('\\begin{' + begin.getName() + '}')
-        .split(/=/);
+      const opts = parser.GetBrackets('\\begin{' + begin.getName() + '}')?.toString() || '';
+      const argResult = parser.GetArgument('\\begin{' + begin.getName() + '}');
+      const [env, n] = argResult.toString().split(/=/);
       if (!EmpheqUtil.checkEnv(env)) {
         throw new TexError(
           'EmpheqInvalidEnv',
@@ -76,12 +76,12 @@ export const EmpheqMethods = {
         );
       }
       parser.stack.global.empheq = env;
-      parser.string =
-        '\\begin{' +
-        env +
-        '}' +
-        (n ? '{' + n + '}' : '') +
-        parser.string.slice(parser.i);
+      parser.string = SourceString.fromSourceRange(
+        '\\begin{' + env + '}' + (n ? '{' + n + '}' : ''),
+        parser.string,
+        parser.currentMacroStart(),
+        parser.i
+      ).concat(parser.string.slice(parser.i));
       parser.i = 0;
       parser.Push(begin);
     }

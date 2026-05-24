@@ -30,6 +30,7 @@ import { MmlNode, AbstractMmlNode } from '../../../core/MmlTree/MmlNode.js';
 import { EnvList } from '../StackItem.js';
 import NodeUtil from '../NodeUtil.js';
 import { StopItem, StyleItem } from '../base/BaseItems.js';
+import { SourceString } from '../SourceString.js';
 
 /**
  * Subclass of the TexParser but for handling text-mode material
@@ -76,7 +77,7 @@ export class TextParser extends TexParser {
    * @class
    */
   constructor(
-    text: string,
+    text: SourceString,
     env: EnvList,
     configuration: ParseOptions,
     level?: number | string

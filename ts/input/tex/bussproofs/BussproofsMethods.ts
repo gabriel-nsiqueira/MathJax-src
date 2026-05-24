@@ -29,6 +29,7 @@ import { UnitUtil } from '../UnitUtil.js';
 import { StackItem } from '../StackItem.js';
 import { MmlNode } from '../../../core/MmlTree/MmlNode.js';
 import * as BussproofsUtil from './BussproofsUtil.js';
+import { SourceString } from '../SourceString.js';
 
 /**
  * Pads content of an inference rule.
@@ -165,7 +166,7 @@ function parseFCenterLine(parser: TexParser, name: string): MmlNode {
     parser.configuration
   ).mml();
   const fcenter = new TexParser(
-    '\\fCenter',
+    new SourceString('\\fCenter'),
     parser.stack.env,
     parser.configuration
   ).mml();
@@ -221,7 +222,7 @@ const BussproofsMethods: { [key: string]: ParseMethod } = {
         'Proof commands only allowed in prooftree environment.'
       );
     }
-    const content = paddedContent(parser, parser.GetArgument(name));
+    const content = paddedContent(parser, parser.GetArgument(name).toString());
     BussproofsUtil.setProperty(content, 'axiom', true);
     top.Push(content);
   },
@@ -262,7 +263,7 @@ const BussproofsMethods: { [key: string]: ParseMethod } = {
     const table = parser.create('node', 'mtable', [row], {
       framespacing: '0 0',
     });
-    const conclusion = paddedContent(parser, parser.GetArgument(name));
+    const conclusion = paddedContent(parser, parser.GetArgument(name).toString());
     const style = top.getProperty('currentLine') as string;
     if (style !== top.getProperty('line')) {
       top.setProperty('currentLine', top.getProperty('line'));
@@ -299,7 +300,7 @@ const BussproofsMethods: { [key: string]: ParseMethod } = {
         'Proof commands only allowed in prooftree environment.'
       );
     }
-    const content = ParseUtil.internalMath(parser, parser.GetArgument(name), 0);
+    const content = ParseUtil.internalMath(parser, parser.GetArgument(name).toString(), 0);
     const label =
       content.length > 1
         ? parser.create('node', 'mrow', content, {})

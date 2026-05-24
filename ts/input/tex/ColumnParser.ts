@@ -27,6 +27,7 @@ import TexError from './TexError.js';
 import { lookup } from '../../util/Options.js';
 import { ParseUtil } from './ParseUtil.js';
 import { UnitUtil } from './UnitUtil.js';
+import { SourceString } from './SourceString.js';
 
 /***********************************************************************/
 
@@ -341,7 +342,7 @@ export class ColumnParser {
       args.push(this.getBraces(state));
     }
     state.template =
-      ParseUtil.substituteArgs(state.parser, args, macro) +
+      ParseUtil.substituteArgs(state.parser, args.map(a => new SourceString(a)), new SourceString(macro)).toString() +
       state.template.slice(state.i);
     state.i = 0;
   }

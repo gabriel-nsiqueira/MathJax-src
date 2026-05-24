@@ -27,6 +27,7 @@ import TexParser from '../TexParser.js';
 import { CommandMap } from '../TokenMap.js';
 import { ParseMethod } from '../Types.js';
 import { ParseUtil } from '../ParseUtil.js';
+import { SourceString } from '../SourceString.js';
 
 /**
  * The attributes allowed in \enclose{notation}[attributes]{math}
@@ -53,10 +54,10 @@ export const EncloseMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The name of the calling macro.
    */
   Enclose(parser: TexParser, name: string) {
-    const notation = parser.GetArgument(name).replace(/,/g, ' ');
-    const attr = parser.GetBrackets(name, '');
+    const notation = parser.GetArgument(name).replace(/,/g, ' ').toString();
+    const attr = parser.GetBrackets(name, new SourceString(''));
     const math = parser.ParseArg(name);
-    const def = ParseUtil.keyvalOptions(attr, ENCLOSE_OPTIONS);
+    const def = ParseUtil.keyvalOptions(attr.toString(), ENCLOSE_OPTIONS);
     def.notation = notation;
     parser.Push(parser.create('node', 'menclose', [math], def));
   },

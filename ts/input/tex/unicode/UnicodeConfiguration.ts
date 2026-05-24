@@ -32,6 +32,7 @@ import { UnitUtil } from '../UnitUtil.js';
 import NodeUtil from '../NodeUtil.js';
 import { numeric } from '../../../util/Entities.js';
 import { Other } from '../base/BaseConfiguration.js';
+import { SourceString } from '../SourceString.js';
 
 const UnicodeCache: { [key: number]: [number, number, string, number] } = {};
 
@@ -49,12 +50,12 @@ const UnicodeMethods: { [key: string]: ParseMethod } = {
     let font = '';
     if (HD) {
       if (
-        HD.replace(/ /g, '').match(/^(\d+(\.\d*)?|\.\d+),(\d+(\.\d*)?|\.\d+)$/)
+        HD.replace(/ /g, '').toString().match(/^(\d+(\.\d*)?|\.\d+),(\d+(\.\d*)?|\.\d+)$/)
       ) {
-        HDsplit = HD.replace(/ /g, '').split(/,/);
-        font = parser.GetBrackets(name) || '';
+        HDsplit = HD.replace(/ /g, '').toString().split(/,/);
+        font = (parser.GetBrackets(name) || new SourceString('')).toString();
       } else {
-        font = HD;
+        font = HD.toString();
       }
     }
     if (font.match(/;/)) {
@@ -64,7 +65,7 @@ const UnicodeMethods: { [key: string]: ParseMethod } = {
         parser.currentCS
       );
     }
-    const n = UnitUtil.trimSpaces(parser.GetArgument(name)).replace(/^0x/, 'x');
+    const n = UnitUtil.trimSpaces(parser.GetArgument(name).toString()).replace(/^0x/, 'x');
     if (!n.match(/^(x[0-9A-Fa-f]+|[0-9]+)$/)) {
       throw new TexError(
         'BadUnicode',
@@ -109,7 +110,7 @@ const UnicodeMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The name of the macro.
    */
   RawUnicode(parser: TexParser, name: string) {
-    const hex = parser.GetArgument(name).trim();
+    const hex = parser.GetArgument(name).trim().toString();
     if (!hex.match(/^[0-9A-F]{1,6}$/)) {
       throw new TexError(
         'BadRawUnicode',
@@ -118,7 +119,7 @@ const UnicodeMethods: { [key: string]: ParseMethod } = {
       );
     }
     const n = parseInt(hex, 16);
-    parser.string = String.fromCodePoint(n) + parser.string.substring(parser.i);
+    parser.string = SourceString.fromSourceRange(String.fromCodePoint(n), parser.string, parser.currentMacroStart(), parser.i).concat(parser.string.slice(parser.i));
     parser.i = 0;
   },
 
@@ -162,7 +163,7 @@ const UnicodeMethods: { [key: string]: ParseMethod } = {
               parser.currentCS
             );
           }
-          c = cs[0];
+          c = cs[0].toString();
           match = [''];
         }
       }

@@ -62,7 +62,7 @@ export const TextMacrosMethods = {
       switch (c) {
         case '\\': {
           const cs = parser.GetCS();
-          if (cs === ')') c = '\\('; // \( is the opening delimiter for \)
+          if (cs.toString() === ')') c = '\\('; // \( is the opening delimiter for \)
         }
         // falls through
         case '$':
@@ -74,7 +74,7 @@ export const TextMacrosMethods = {
             const config = parser.texParser.configuration;
             // j > i!
             const mml = new TexParser(
-              parser.string.substring(i, j),
+              parser.string.slice(i, j),
               parser.stack.env,
               config
             ).mml();

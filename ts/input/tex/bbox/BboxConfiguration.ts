@@ -27,6 +27,7 @@ import TexParser from '../TexParser.js';
 import { CommandMap } from '../TokenMap.js';
 import { ParseMethod } from '../Types.js';
 import TexError from '../TexError.js';
+import { SourceString } from '../SourceString.js';
 
 // Namespace
 const BboxMethods: { [key: string]: ParseMethod } = {
@@ -37,7 +38,7 @@ const BboxMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The name of the calling macro.
    */
   BBox(parser: TexParser, name: string) {
-    const bbox = parser.GetBrackets(name, '');
+    const bbox = parser.GetBrackets(name, new SourceString('')).toString();
     let math = parser.ParseArg(name);
     const parts = bbox.split(/,/);
     let def, background, style;

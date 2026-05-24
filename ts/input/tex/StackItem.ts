@@ -26,6 +26,7 @@ import { FactoryNodeClass } from '../../core/Tree/Factory.js';
 import TexError from './TexError.js';
 import StackItemFactory from './StackItemFactory.js';
 import { TexConstant } from './TexConstants.js';
+import { SourceString } from './SourceString.js';
 
 // Union types for abbreviation.
 export type EnvProp = string | number | boolean;
@@ -87,7 +88,7 @@ export interface NodeStack {
   /**
    * The LaTeX string at the moment item is called.
    */
-  startStr: string;
+  startStr: SourceString;
 
   /**
    * Parser position in the global LaTeX string when item is called.
@@ -115,7 +116,7 @@ export abstract class MmlStack implements NodeStack {
   /**
    * @override
    */
-  public startStr: string = '';
+  public startStr: SourceString;
 
   /**
    * @override
@@ -132,7 +133,12 @@ export abstract class MmlStack implements NodeStack {
    * @augments {NodeStack}
    * @param {MmlNode[]} _nodes An initial list of nodes to put on the stack.
    */
-  constructor(private _nodes: MmlNode[]) {}
+  constructor(
+    private _nodes: MmlNode[],
+    startStr: SourceString
+  ) {
+    this.startStr = startStr;
+  }
 
   /**
    * @returns {MmlNode[]} The nodes on the stack.
@@ -419,7 +425,7 @@ export abstract class BaseItem extends MmlStack implements StackItem {
     protected factory: StackItemFactory,
     ...nodes: MmlNode[]
   ) {
-    super(nodes);
+    super(nodes, new SourceString(''));
     if (this.isOpen) {
       this._env = {};
     }
@@ -580,12 +586,18 @@ export abstract class BaseItem extends MmlStack implements StackItem {
    * @param {string=} prefix A prefix for the LaTeX command.
    */
   public addLatexItem(node: MmlNode, prefix: string = '') {
-    const str = this.startStr.slice(this.startI, this.stopI);
+    const source = this.startStr.slice(this.startI, this.stopI);
+    const str = source.toString();
     if (str) {
       const tex = prefix ? prefix + str : str;
       node.attributes.set(TexConstant.Attr.LATEXITEM, tex);
       if (tex !== '}') {
         node.attributes.set(TexConstant.Attr.LATEX, tex);
+        const range = source.originalRange();
+        if (range) {
+          node.attributes.set(TexConstant.Attr.LATEX_START, range.start);
+          node.attributes.set(TexConstant.Attr.LATEX_END, range.end);
+        }
       }
     }
   }

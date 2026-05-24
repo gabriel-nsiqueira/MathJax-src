@@ -35,6 +35,7 @@ import { BaseItem, StackItem, EnvList } from './StackItem.js';
 import { Token } from './Token.js';
 import { OptionList } from '../../util/Options.js';
 import { TexConstant } from './TexConstants.js';
+import { SourceOriginRange, SourceString } from './SourceString.js';
 
 /**
  * The main Tex Parser class.
@@ -69,22 +70,28 @@ export default class TexParser {
   public currentCS: string = '';
 
   /**
+   * The string currently being parsed.
+   */
+  private _string: SourceString;
+
+  /**
    * A stack to save the string positions when we restart the parser.
    */
   private saveI: number = 0;
 
   /**
    * @class
-   * @param {string} _string The string to parse.
+   * @param {SourceString} _string The source string to parse.
    * @param {EnvList} env The intial environment representing the current parse
    *     state of the overall expression translation.
    * @param {ParseOptions} configuration A parser configuration.
    */
   constructor(
-    private _string: string,
+    _string: SourceString,
     env: EnvList,
     public configuration: ParseOptions
   ) {
+    this._string = _string;
     const inner = Object.hasOwn(env, 'isInner');
     const isInner = env['isInner'] as boolean;
     delete env['isInner'];
@@ -126,16 +133,16 @@ export default class TexParser {
   /**
    * Sets the string that should be parsed.
    *
-   * @param {string} str The new string to parse.
+   * @param {SourceString} str The new string to parse.
    */
-  set string(str: string) {
+  set string(str: SourceString) {
     this._string = str;
   }
 
   /**
-   * @returns {string} The string that is currently parsed.
+   * @returns {SourceString} The string that is currently parsed.
    */
-  get string(): string {
+  get string(): SourceString {
     return this._string;
   }
 
@@ -224,7 +231,7 @@ export default class TexParser {
     if (arg instanceof BaseItem) {
       arg.startI = this.saveI;
       arg.stopI = this.i;
-      arg.startStr = this.string;
+      arg.startStr = this.string.slice(this.saveI, this.i);
     }
     if (arg instanceof AbstractMmlNode && arg.isInferred) {
       this.PushAll(arg.childNodes);
@@ -255,7 +262,7 @@ export default class TexParser {
     this.configuration.popParser();
     const latex = this.trimTex(this.string);
     if (latex) {
-      node.attributes.set(TexConstant.Attr.LATEX, latex);
+      node.attributes.set(TexConstant.Attr.LATEX, latex.toString());
     }
     return node;
   }
@@ -292,6 +299,13 @@ export default class TexParser {
   }
 
   /**
+   * @returns {number} The start index of the current macro in this parser string.
+   */
+  public currentMacroStart(): number {
+    return Math.max(0, this.i - this.currentCS.length);
+  }
+
+  /**
    * @returns {string} Get the next non-space character.
    */
   public GetNext(): string {
@@ -304,7 +318,7 @@ export default class TexParser {
   /**
    * @returns {string} Get and return a control-sequence name
    */
-  public GetCS(): string {
+  public GetCS(): SourceString {
     const CS = this.string
       .slice(this.i)
       .match(/^(([a-z]+) ?|[\uD800-\uDBFF].|.)/i);
@@ -313,7 +327,7 @@ export default class TexParser {
       return CS[2] || CS[1];
     } else {
       this.i++;
-      return ' ';
+      return SourceString.fromSourceRange(' ', this.string, this.i - 1, this.i);
     }
   }
 
@@ -323,9 +337,9 @@ export default class TexParser {
    *
    * @param {string} _name Name of the current control sequence.
    * @param {boolean} noneOK True if no argument is OK.
-   * @returns {string} The next argument.
+   * @returns {SourceString} The next argument.
    */
-  public GetArgument(_name: string, noneOK: boolean = false): string {
+  public GetArgument(_name: string, noneOK: boolean = false): SourceString {
     switch (this.GetNext()) {
       case '':
         if (!noneOK) {
@@ -348,7 +362,7 @@ export default class TexParser {
         return null;
       case '\\':
         this.i++;
-        return '\\' + this.GetCS();
+        return SourceString.fromSourceRange('\\', this.string, this.i - 1, this.i).concat(this.GetCS());
       case '{': {
         const j = ++this.i;
         let parens = 1;
@@ -371,9 +385,9 @@ export default class TexParser {
         throw new TexError('MissingCloseBrace', 'Missing close brace');
       }
     }
-    const c = this.getCodePoint();
-    this.i += c.length;
-    return c;
+    const j = this.i;
+    this.i += this.getCodePoint().length;
+    return this.string.slice(j, this.i);
   }
 
   /**
@@ -386,9 +400,9 @@ export default class TexParser {
    */
   public GetBrackets(
     _name: string,
-    def?: string,
+    def?: SourceString,
     matchBrackets: boolean = false
-  ): string {
+  ): SourceString {
     if (this.GetNext() !== '[') {
       return def;
     }
@@ -442,17 +456,21 @@ export default class TexParser {
    * @returns {string} The delimiter name.
    */
   public GetDelimiter(name: string, braceOK: boolean = false): string {
+    const j = this.i;
     let c = this.GetNext();
     this.i += c.length;
     if (this.i <= this.string.length) {
+      let delim: SourceString;
       if (c === '\\') {
-        c += this.GetCS();
+        delim = this.string.slice(j, this.i).concat(this.GetCS());
       } else if (c === '{' && braceOK) {
         this.i--;
-        c = this.GetArgument(name).trim();
+        delim = this.GetArgument(name).trim();
+      } else {
+        delim = this.string.slice(j, this.i);
       }
-      if (this.contains(HandlerType.DELIMITER, c)) {
-        return this.convertDelimiter(c);
+      if (this.contains(HandlerType.DELIMITER, delim.toString())) {
+        return this.convertDelimiter(delim.toString());
       }
     }
     // @test MissingOrUnrecognizedDelim1, MissingOrUnrecognizedDelim2
@@ -472,7 +490,7 @@ export default class TexParser {
   public GetDimen(name: string): string {
     if (this.GetNext() === '{') {
       const dimen = this.GetArgument(name);
-      const [value, unit] = UnitUtil.matchDimen(dimen);
+      const [value, unit] = UnitUtil.matchDimen(dimen.toString());
       if (value) {
         // @test Raise In Line, Lower 2, (Raise|Lower) Negative
         return value + unit;
@@ -480,7 +498,7 @@ export default class TexParser {
     } else {
       // @test Above, Raise, Lower, Modulo, Above With Delims
       const dimen = this.string.slice(this.i);
-      const [value, unit, length] = UnitUtil.matchDimen(dimen, true);
+      const [value, unit, length] = UnitUtil.matchDimen(dimen.toString(), true);
       if (value) {
         this.i += length;
         return value + unit;
@@ -501,7 +519,7 @@ export default class TexParser {
    * @param {string} token The element until where to parse.
    * @returns {string} The text between the current position and the given token.
    */
-  public GetUpTo(_name: string, token: string): string {
+  public GetUpTo(_name: string, token: string): SourceString {
     while (this.nextIsSpace()) {
       this.i++;
     }
@@ -579,7 +597,7 @@ export default class TexParser {
    * @returns {string} The delimiter.
    */
   public GetDelimiterArg(name: string): string {
-    const c = UnitUtil.trimSpaces(this.GetArgument(name));
+    const c = UnitUtil.trimSpaces(this.GetArgument(name).toString());
     if (c === '') {
       return null;
     }
@@ -629,8 +647,23 @@ export default class TexParser {
    * @param {string} tex   The TeX string to trim
    * @returns {string}     The trimmed string
    */
-  protected trimTex(tex: string): string {
-    return tex.trim() + (tex.match(/(?:^|[^\\])(?:\\\\)*\\\s+$/) ? ' ' : '');
+  protected trimTex(tex: SourceString): SourceString {
+    const match = tex.match(/(?:^|[^\\])(?:\\\\)*\\\s+$/);
+    let result = tex.trim();
+    if (match) {
+      let start = Infinity;
+      let end = 0;
+      for (let i = 0; i < match[0].length; i++) {
+        start = Math.min(start, match[0].toOriginal(i) ?? start);
+        end = Math.max(end, match[0].toOriginalEnd(i) ?? end);
+      }
+      result = result.concat(
+        SourceString.iAmDumbAndThisIsNotFromSource(' ', [
+          new SourceOriginRange(start, end),
+        ])
+      );
+    }
+    return result;
   }
 
   /**
@@ -657,7 +690,7 @@ export default class TexParser {
         if (input === '}' || existing === '}') {
           this.composeBraces(node);
         } else {
-          node.attributes.set(LATEX, existing);
+          this.setLatex(node, existing as string);
         }
       }
       return;
@@ -667,9 +700,10 @@ export default class TexParser {
     // and that the input and string are not both backslashes (the start of a macro).
     //
     old = old < this.saveI ? this.saveI : old;
-    const str = this.trimTex(
-      old !== this.i ? this.string.slice(old, this.i) : input
+    const tex = this.trimTex(
+      old !== this.i ? this.string.slice(old, this.i) : new SourceString(input)
     );
+    const str = tex.toString();
     if (!str || str === latex || (input === '\\' && str === '\\')) {
       return;
     }
@@ -691,7 +725,7 @@ export default class TexParser {
             if (str === '}') {
               this.composeBraces(node.childNodes[2]);
             } else if (!node.childNodes[2].attributes.hasExplicit(LATEX)) {
-              node.childNodes[2].attributes.set(LATEX, str);
+              this.setLatex(node.childNodes[2], tex);
             }
           }
           //
@@ -713,7 +747,7 @@ export default class TexParser {
             if (str === '}') {
               this.composeBraces(node.childNodes[1]);
             } else if (!node.childNodes[1].attributes.hasExplicit(LATEX)) {
-              node.childNodes[1].attributes.set(LATEX, str);
+              this.setLatex(node.childNodes[1], tex);
             }
           }
           //
@@ -738,7 +772,25 @@ export default class TexParser {
     //
     // Otherwise, set the node's latex.
     //
-    node.attributes.set(LATEX, str);
+    this.setLatex(node, tex);
+  }
+
+  /**
+   * Attach the LaTeX string and source offsets to a MathML node.
+   *
+   * @param {MmlNode} node The MathML node.
+   * @param {SourceString | string} tex The TeX source.
+   */
+  private setLatex(node: MmlNode, tex: SourceString | string) {
+    const text = tex.toString();
+    node.attributes.set(TexConstant.Attr.LATEX, text);
+    if (tex instanceof SourceString) {
+      const range = tex.originalRange();
+      if (range) {
+        node.attributes.set(TexConstant.Attr.LATEX_START, range.start);
+        node.attributes.set(TexConstant.Attr.LATEX_END, range.end);
+      }
+    }
   }
 
   /**
@@ -762,6 +814,14 @@ export default class TexParser {
       comp +
       node.childNodes[pos2].attributes.get(LATEX);
     node.attributes.set(LATEX, expr);
+    const first = node.childNodes[pos1].attributes;
+    const second = node.childNodes[pos2].attributes;
+    const start = first.get(TexConstant.Attr.LATEX_START) as number;
+    const end = second.get(TexConstant.Attr.LATEX_END) as number;
+    if (start != null && end != null) {
+      node.attributes.set(TexConstant.Attr.LATEX_START, start);
+      node.attributes.set(TexConstant.Attr.LATEX_END, end);
+    }
   }
 
   /**
@@ -772,6 +832,18 @@ export default class TexParser {
   private composeBraces(atom: MmlNode) {
     const str = this.composeBracedContent(atom);
     atom.attributes.set(TexConstant.Attr.LATEX, `{${str}}`);
+    const starts: number[] = [];
+    const ends: number[] = [];
+    for (const child of atom.childNodes[0]?.childNodes || []) {
+      const start = child.attributes.get(TexConstant.Attr.LATEX_START) as number;
+      const end = child.attributes.get(TexConstant.Attr.LATEX_END) as number;
+      if (start != null) starts.push(start);
+      if (end != null) ends.push(end);
+    }
+    if (starts.length && ends.length) {
+      atom.attributes.set(TexConstant.Attr.LATEX_START, Math.min(...starts));
+      atom.attributes.set(TexConstant.Attr.LATEX_END, Math.max(...ends));
+    }
   }
 
   /**

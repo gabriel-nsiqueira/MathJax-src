@@ -30,6 +30,7 @@ import { HandlerType } from '../HandlerTypes.js';
 import { NewcommandUtil } from '../newcommand/NewcommandUtil.js';
 
 import { MathtoolsMethods } from './MathtoolsMethods.js';
+import { SourceString } from '../SourceString.js';
 
 /**
  * Utility functions for the Mathtools package.
@@ -145,7 +146,7 @@ export const MathtoolsUtil = {
    * @returns {MmlNode}          The parsed MML version of the argument.
    */
   getScript(parser: TexParser, name: string, pos: string): MmlNode {
-    let arg = UnitUtil.trimSpaces(parser.GetArgument(name));
+    let arg = parser.GetArgument(name).toString().trim();
     if (arg === '') {
       return parser.create('node', 'none');
     }
@@ -154,7 +155,7 @@ export const MathtoolsUtil = {
       arg = `${format}{${arg}}`;
     }
     const mml = new TexParser(
-      arg,
+      new SourceString(arg),
       parser.stack.env,
       parser.configuration
     ).mml();

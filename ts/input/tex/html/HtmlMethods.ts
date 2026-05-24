@@ -59,7 +59,7 @@ const HtmlMethods: { [key: string]: ParseMethod } = {
   Data(parser: TexParser, name: string) {
     const dataset = parser.GetArgument(name);
     const arg = GetArgumentMML(parser, name);
-    const data = ParseUtil.keyvalOptions(dataset);
+    const data = ParseUtil.keyvalOptions(dataset.toString());
     for (const key in data) {
       // remove illegal attribute names
       if (!isLegalAttributeName(key)) {
@@ -83,7 +83,7 @@ const HtmlMethods: { [key: string]: ParseMethod } = {
   Href(parser: TexParser, name: string) {
     const url = parser.GetArgument(name);
     const arg = GetArgumentMML(parser, name);
-    NodeUtil.setAttribute(arg, 'href', url);
+    NodeUtil.setAttribute(arg, 'href', url.toString());
     parser.Push(arg);
   },
 
@@ -94,7 +94,7 @@ const HtmlMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The macro name.
    */
   Class(parser: TexParser, name: string) {
-    let CLASS = parser.GetArgument(name);
+    let CLASS = parser.GetArgument(name).toString();
     const arg = GetArgumentMML(parser, name);
     const oldClass = NodeUtil.getAttribute(arg, 'class');
     if (oldClass) {
@@ -111,9 +111,8 @@ const HtmlMethods: { [key: string]: ParseMethod } = {
    * @param {string} name The macro name.
    */
   Style(parser: TexParser, name: string) {
-    let style = parser.GetArgument(name);
+    let style = parser.GetArgument(name).toString();
     const arg = GetArgumentMML(parser, name);
-    // check that it looks like a style string
     let oldStyle = NodeUtil.getAttribute(arg, 'style') as string;
     if (oldStyle) {
       if (oldStyle.charAt(style.length - 1) !== ';') {
@@ -134,7 +133,7 @@ const HtmlMethods: { [key: string]: ParseMethod } = {
   Id(parser: TexParser, name: string) {
     const ID = parser.GetArgument(name);
     const arg = GetArgumentMML(parser, name);
-    NodeUtil.setAttribute(arg, 'id', ID);
+    NodeUtil.setAttribute(arg, 'id', ID.toString());
     parser.Push(arg);
   },
 };
