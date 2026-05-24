@@ -380,9 +380,20 @@ export class LeftItem extends BaseItem {
   /**
    * @override
    */
-  constructor(factory: StackItemFactory, delim: string) {
+  constructor(
+    factory: StackItemFactory,
+    delim: string,
+    source: SourceString,
+    root: SourceString,
+    sourceStart: number,
+    sourceEnd: number
+  ) {
     super(factory);
     this.setProperty('delim', delim);
+    this.setProperty('source', source);
+    this.setProperty('root', root);
+    this.setProperty('sourceStart', sourceStart);
+    this.setProperty('sourceEnd', sourceEnd);
   }
 
   /**
@@ -408,10 +419,11 @@ export class LeftItem extends BaseItem {
       //
       //  Create the fenced structure as an mrow
       //
+      const content = this.toMml();
       const fenced = ParseUtil.fenced(
         this.factory.configuration,
         this.getProperty('delim') as string,
-        this.toMml(),
+        content,
         item.getProperty('delim') as string,
         '',
         item.getProperty('color') as string
@@ -421,12 +433,18 @@ export class LeftItem extends BaseItem {
       const mrow = this.factory.create('mml', fenced);
       this.addLatexItem(left, '\\left');
       item.addLatexItem(right, '\\right');
-      mrow
-        .Peek()[0]
-        .attributes.set(
-          TexConstant.Attr.LATEXITEM,
-          '\\left' + item.startStr.slice(this.startI, item.stopI)
-        );
+      const leftSource = this.getProperty('source') as SourceString;
+      const rightSource = item.getProperty('source') as SourceString;
+      const root = this.getProperty('root') as SourceString;
+      const leftEnd = this.getProperty('sourceEnd') as number;
+      const rightStart = item.getProperty('sourceStart') as number;
+      const source = leftSource.concat(root.slice(leftEnd, rightStart)).concat(rightSource);
+      const range = source.originalRange();
+      fenced.attributes.set(TexConstant.Attr.LATEXITEM, source.toString());
+      if (range) {
+        fenced.attributes.set(TexConstant.Attr.LATEX_START, range.start);
+        fenced.attributes.set(TexConstant.Attr.LATEX_END, range.end);
+      }
       return [[mrow], true];
     }
     if (item.isKind('middle')) {
@@ -459,9 +477,21 @@ export class Middle extends BaseItem {
   /**
    * @override
    */
-  constructor(factory: StackItemFactory, delim: string, color: string) {
+  constructor(
+    factory: StackItemFactory,
+    delim: string,
+    source: SourceString,
+    root: SourceString,
+    sourceStart: number,
+    sourceEnd: number,
+    color?: string
+  ) {
     super(factory);
     this.setProperty('delim', delim);
+    this.setProperty('source', source);
+    this.setProperty('root', root);
+    this.setProperty('sourceStart', sourceStart);
+    this.setProperty('sourceEnd', sourceEnd);
     if (color) {
       this.setProperty('color', color);
     }
@@ -490,9 +520,21 @@ export class RightItem extends BaseItem {
   /**
    * @override
    */
-  constructor(factory: StackItemFactory, delim: string, color: string) {
+  constructor(
+    factory: StackItemFactory,
+    delim: string,
+    source: SourceString,
+    root: SourceString,
+    sourceStart: number,
+    sourceEnd: number,
+    color?: string
+  ) {
     super(factory);
     this.setProperty('delim', delim);
+    this.setProperty('source', source);
+    this.setProperty('root', root);
+    this.setProperty('sourceStart', sourceStart);
+    this.setProperty('sourceEnd', sourceEnd);
     if (color) {
       this.setProperty('color', color);
     }

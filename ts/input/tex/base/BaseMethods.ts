@@ -559,10 +559,17 @@ const BaseMethods: { [key: string]: ParseMethod } = {
   LeftRight(parser: TexParser, name: string) {
     // @test Fenced, Fenced3
     const first = name.substring(1);
+    const start = parser.currentMacroStart();
+    const delim = parser.GetDelimiter(name);
+    const source = parser.string.slice(start, parser.i);
     parser.Push(
       parser.itemFactory.create(
         first,
-        parser.GetDelimiter(name),
+        delim,
+        source,
+        parser.string,
+        start,
+        parser.i,
         parser.stack.env.color
       )
     );
