@@ -841,8 +841,8 @@ export default class TexParser {
       if (end != null) ends.push(end);
     }
     if (starts.length && ends.length) {
-      atom.attributes.set(TexConstant.Attr.LATEX_START, Math.min(...starts));
-      atom.attributes.set(TexConstant.Attr.LATEX_END, Math.max(...ends));
+      atom.attributes.set(TexConstant.Attr.LATEX_START, Math.max(0, Math.min(...starts) - 1));
+      atom.attributes.set(TexConstant.Attr.LATEX_END, Math.max(...ends) + 1);
     }
   }
 
